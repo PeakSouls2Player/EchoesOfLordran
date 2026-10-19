@@ -388,6 +388,8 @@ public static partial class OutfitCheck
                         ds1Ids[s] = Math.Max(0, I(init, fields[s]));
                         expect[s] = ds1Ids[s] > 0 ? ExpectedArmor(c.Ds1, ds2, probe, ds1Ids[s]) : -1;
                     }
+                    // session 11 (npc12), rule N-HEAD1: the head slot is the NPC's baked DS1 head piece (helm + face + hair)
+                    if (part.NPCParamID is >= 6000 and < 7000) expect[0] = NpcHead.ArmorId(NpcHead.Model(part.NPCParamID));
                     ds1Set = string.Join(", ", ds1Ids.Select(d => d > 0 ? $"{(c.Ds1.Text("Armor_name_", d / 1000 * 1000) is { Length: > 0 } t ? t : "(unnamed)")} {d}" : "-"));
                 }
                 else

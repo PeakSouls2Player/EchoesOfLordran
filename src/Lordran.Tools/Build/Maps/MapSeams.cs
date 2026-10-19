@@ -9,7 +9,11 @@ namespace Lordran.Tools.Build.Maps;
 /// aqueduct/tunnel, the Lower-Burg rooms, the Parish lift shaft; V-data), and so does DS2 (research\seam.md, V-code):
 /// while the player stands on collision X, every enabled ConnectCollision of X loads its target map (FUN_1403dc930: a map is
 /// wanted when its slot mask ≠ 0) and switches on the target's parts whose groups intersect the connect's Unk44..50 mask
-/// (FUN_1401c8cd0); the current map is the map owning the collision under the player (FUN_1403dc3e0). Rules:
+/// (FUN_1401c8cd0); the current map is the map owning the collision under the player (FUN_1403dc3e0).
+/// SS1 (session 11, seam12; proven missing by the m19_42 → m19_41 play test: m19_41's MSB never opened): FUN_1401c8cd0 only
+/// ORs masks into slots whose avail byte is set, and avail = FUN_1402db4f0(map) = "map in DS2's hard-coded 28-map PlayGo chunk
+/// table" (FUN_141073830) — never true for our m18/m19 hosts. The loader's seam stream gate (src\loader\stream.c) answers 1
+/// for areas 18/19; `lr seam-stream-check` checks connects, boxes and the loader against that model. Rules:
 ///  - SM1: area-10 DS1 maps share one frame: MapOffset 0 on every host, no transform (MapBuilder already does it).
 ///  - CC1: each DS1 ConnectCollision whose collision this build placed (filter 8, MapBuilder.PlacedCollisions) and whose
 ///    target DS1 map is built into a DIFFERENT host → an MSB2 ConnectCollision on that collision, MapID = the target host

@@ -157,6 +157,9 @@ static HRESULT WINAPI hk_GetDeviceState(void *self, DWORD size, void *data)
     lr_mapcap_tick(); // raises the 42-map WorldMapList limit once, on the game thread, before any map loads (mapcap.c, session 11)
     lr_travel_tick(); // installs the Travel page hooks once, on the game thread (travel.c, session 8)
     lr_gesture_tick(); // installs the gesture page hooks once, on the game thread (gesture.c, session 11)
+    lr_nmbpool_install(); // rule I1p-L: Morpheme asset pool growth (nmbpool.c, session 13 seam13), once
+    lr_dummyguard_install(); // rule DM1 safety net (dummyguard.c, session 13 seam13), once
+    lr_stream_tick(); // seam streaming gate for DS1 maps, once, before the first map loads (stream.c, session 11 seam12)
     if (!lr_config.autopilot)
         return r;
     if (FAILED(r)) {

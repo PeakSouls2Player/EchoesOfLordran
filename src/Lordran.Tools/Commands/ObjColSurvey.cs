@@ -62,7 +62,7 @@ public static class ObjColSurvey
         return 0;
     }
 
-    static IEnumerable<HkPObj> Bodies(HkPObj root)
+    public static IEnumerable<HkPObj> Bodies(HkPObj root)
     {
         foreach (var nv in root.List("namedVariants").OfType<HkPObj>())
             if (nv["variant"] is HkPObj { Class: "hkpPhysicsData" } pd)

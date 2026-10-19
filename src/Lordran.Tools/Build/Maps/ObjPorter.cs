@@ -165,6 +165,9 @@ public static class ObjPorter
                 Add(ds2Anim + ".hkx", chr ? Formats.Ds2Scn.WriteClip(new HkSplineAnim(new HkTagfile(A(ds1Anim + ".hkx").Bytes)), "Master", n, tAnim)
                     : HkTagToPack.Convert(A(ds1Anim + ".hkx").Bytes, tAnim));
         }
+        // session 13 (seam13), rule DM1 (Build/DummyRules.cs): a rigid model has no inverse-bind array in DS2, so DS1's "attached"
+        // dummies (Flag1 + AttachBoneIndex) become bone-relative (the barrel o1330 crashed DS2 at exe+0xb35dae)
+        if (DummyRules.Apply(flver) is > 0 and var dm1) pack.Note($"object {o.Ds1Obj} → {n}: rule DM1: {dm1} attached dummies on a rigid model made bone-relative (DS2 crash exe+0xb35dae otherwise)");
         Add(n + ".flv", flver.Write());
         var mte = T(t + ".mte.dcx");
         Add(n + ".mte.dcx", mte.Bytes, mte.Flags);
@@ -178,6 +181,7 @@ public static class ObjPorter
             var frag = fragConv.Convert(FLVER2.Read(ds1Frag.Bytes), n + "_1", FLVER2.Read(T(t + "_1.flv").Bytes));
             foreach (var node in frag.Nodes)
                 if (node.Name.StartsWith(o.Ds1Obj, StringComparison.OrdinalIgnoreCase)) node.Name = n + node.Name[o.Ds1Obj.Length..];
+            if (DummyRules.Apply(frag) is > 0 and var dm1f) pack.Note($"object {o.Ds1Obj} → {n}_1: rule DM1: {dm1f} attached dummies made bone-relative");
             Add(n + "_1.flv", frag.Write());
             var mte1 = T(t + "_1.mte.dcx");
             Add(n + "_1.mte.dcx", mte1.Bytes, mte1.Flags);
@@ -197,9 +201,21 @@ public static class ObjPorter
         var ds1Col = chr ? null : ds1.Files.FirstOrDefault(f => Path.GetFileName(f.Name).Equals(o.Ds1Obj + ".hkx", StringComparison.OrdinalIgnoreCase)) ?? ds1.Files.FirstOrDefault(f => f.ID == 300);
         byte[]? col = null;
         Action<HkPObj>? ds1Fixup = null;
+        var staticBinds = new Dictionary<string, (string Name, float[]? Node)>(); // rule OB1: original body name → bound name (+ the node it needs)
         if (ds1Col != null)
         {
             Action<HkPObj> fixup = anibnd == null ? StaticFixup : BoneBodyFixup;
+            // session 12 (brk12), rule OB1: a baked (non-animated) object's model has ONE node, named like the DS2 model; DS2 creates
+            // only bodies whose name matches a FLVER node (FUN_140bcc840 → FUN_140bcc110). DS1 names its bodies freely (o1495's
+            // "o5550_h", o1496's "o1496_h", the Burg crates' "o1132_01", o8400's 15 "o8400_NN"), so those bodies were never
+            // created: no collision, nothing to hit or roll into (user: "no-clipping through pots in Firelink that weren't
+            // breaking"). Each body is bound: the first identity-placed one takes the model name, every other one gets its own
+            // mesh-less node (n_bNN) at the body's own transform (DS2's convention: o00_2004 / o15_9009 nodes sit at their bodies).
+            if (anibnd == null && o.Variant != TestVariant.Ds2IntactBody)
+            {
+                var inner = fixup;
+                fixup = p => { inner(p); if (p.Class == "hkpRigidBody") BindStaticBody(p, n, staticBinds); };
+            }
             ds1Fixup = fixup;
             // objects that rise to open (the Asylum's escape gate: 1.83 m): DS1's collision then leaves 1.61 m, enough for
             // DS1's player, not DS2's (user, session 8: "invisible wall at this gate"; MP blocked under the raised bars,
@@ -240,6 +256,15 @@ public static class ObjPorter
             try { r = ConvertCollision(data, ds1Col!.Bytes, T(t + "_h.hkx").Bytes, new Dictionary<string, string> { [o.Ds1Obj] = n }, ds1Fixup!, ds2Conventions: o.Variant != TestVariant.LegacyHavok, unwrapOffsetSpheres: true); return true; }
             catch (InvalidDataException) { return false; }
         }
+        // rule OB1: the nodes the bound bodies need (mesh-less, at the body's transform)
+        if (staticBinds.Values.Where(v => v.Node != null).ToList() is { Count: > 0 } extra)
+        {
+            foreach (var (bn, tr) in extra.DistinctBy(v => v.Name)) flver.Nodes.Add(BodyNode(bn, tr!, flver));
+            files.First(f => f.Name == n + ".flv").Bytes = flver.Write();
+        }
+        if (staticBinds.Count > 0 && staticBinds.Any(kv => kv.Key.Split('|')[0] != kv.Value.Name))
+            pack.Note($"object {o.Ds1Obj} → {n}: rule OB1: {staticBinds.Count} intact bod{(staticBinds.Count == 1 ? "y" : "ies")} bound to model nodes: "
+                + string.Join(", ", staticBinds.Select(kv => $"{kv.Key.Split('|')[0]}→{kv.Value.Name}{(kv.Value.Node != null ? " (+node)" : "")}")));
         // (Scenery: no collision file when DS1 has none; its template has none either)
         if (!chr && !o.NoCollision && (col != null || o.Kind != Kind.Scenery)) Add(n + "_h.hkx", col ?? Replace(T(t + "_h.hkx").Bytes, t, n));
         if (skeleton != null) Add("skeleton.hkx", skeleton);
@@ -412,6 +437,43 @@ public static class ObjPorter
     /// </summary>
     static Dictionary<string, string> BodyRename(string ds1, string ds2, bool animated) =>
         animated ? new() { [ds1 + "_h"] = ds1 } : new() { [ds1] = ds2 };
+
+    static bool Identity(float[] t)
+    {
+        float[] id = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+        for (int c = 0; c < 3; c++) for (int r = 0; r < 3; r++) if (Math.Abs(t[c * 4 + r] - id[c * 3 + r]) > 1e-4f) return false;
+        return Math.Abs(t[12]) < 1e-4f && Math.Abs(t[13]) < 1e-4f && Math.Abs(t[14]) < 1e-4f;
+    }
+
+    /// <summary>Rule OB1: binds one intact body of a baked object to a node (see Port). State keyed by the DS1 name + transform, so a
+    /// conversion retried on another template names the bodies the same way.</summary>
+    static void BindStaticBody(HkPObj body, string n, Dictionary<string, (string Name, float[]? Node)> binds)
+    {
+        string orig = body["name"] as string ?? "";
+        var tr = (float[])body.Get("motion").Get("motionState")["transform"]!;
+        string key = orig + "|" + string.Join(",", tr.Take(15).Select(v => v.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)));
+        if (!binds.TryGetValue(key, out var b))
+        {
+            bool id = Identity(tr);
+            b = id && !binds.Values.Any(v => v.Name == n) ? (n, null) : ($"{n}_b{binds.Count(v => v.Value.Node != null):D2}", (float[])tr.Clone());
+            binds[key] = b;
+        }
+        body["name"] = b.Name;
+    }
+
+    /// <summary>A mesh-less FLVER root node at a Havok body transform (column-major rotation: floats 0-2, 4-6, 8-10; translation
+    /// 12-14). SoulsFormats' local transform is Scale·RotX·RotZ·RotY·T (row vectors), so M = Rᵀ: M12 = sin z, M11 = cos z cos y,
+    /// M13 = −cos z sin y, M22 = cos x cos z, M32 = −sin x cos z.</summary>
+    static FLVER.Node BodyNode(string name, float[] t, FLVER2 flver)
+    {
+        float m11 = t[0], m12 = t[1], m13 = t[2], m22 = t[5], m32 = t[9];
+        float z = MathF.Asin(Math.Clamp(m12, -1f, 1f)), y = MathF.Atan2(-m13, m11), x = MathF.Atan2(-m32, m22);
+        var node = new FLVER.Node { Name = name, Translation = new System.Numerics.Vector3(t[12], t[13], t[14]), Rotation = new System.Numerics.Vector3(x, y, z) };
+        // root siblings: link after the last root node
+        int last = flver.Nodes.FindLastIndex(nd => nd.ParentIndex == -1);
+        if (last >= 0) { flver.Nodes[last].NextSiblingIndex = (short)flver.Nodes.Count; node.PreviousSiblingIndex = (short)last; }
+        return node;
+    }
 
     static void BoneBodyFixup(HkPObj o)
     {

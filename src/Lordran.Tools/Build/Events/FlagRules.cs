@@ -51,7 +51,11 @@ public static class FlagRules
     /// <summary>Session 11 (merge11, enemy-audit G4): a DS2 flag of <see cref="BossLogicFlag"/>'s form (prefix·1e6 + 20080..20089
     /// of a hosting map): DS2's own boss logic flags sit in block k = 2 (vanilla Smelter 119020080: V-data), so the
     /// "DS1 temporary flag in k2" rule of flag-check does not apply to them (they are reset at load by rule T1-B).</summary>
-    public static bool IsBossLogicFlag(long f) => f % 1_000_000 is >= 20080 and < 20090 && Host.Values.Any(h => Ds2FlagStore.Prefix(h) == f / 1_000_000);
+    /// Session 13 (seam13): also rule BB1's battle latches (20090..20099), reset at load the same way.
+    public static bool IsBossLogicFlag(long f) => f % 1_000_000 is >= 20080 and < 20100 && Host.Values.Any(h => Ds2FlagStore.Prefix(h) == f / 1_000_000);
+    /// <summary>Session 13 (seam13), rule BB1: a boss battle's latch "the battle was started this load" = its boss logic flag + 10
+    /// (prefix·1e6 + 20090 + k, block k2 beside the logic flags, reset at load by rule T1-B). Gates the fight's death / HP tests.</summary>
+    public static int BattleLatchFlag(int bossLogicFlag) => bossLogicFlag + 10;
     public static int? BossLogicFlag(string ds1Map, int k) => Host.TryGetValue(ds1Map[..6], out var ds2) ? Ds2FlagStore.Prefix(ds2) * 1_000_000 + 20080 + k : null; // session 11 merge: main's prefix = Ds2FlagStore.Prefix of the host map (m18_01 → 101, as chrint's table)
 
     /// <summary>Session 11 (fx11), rule E-REQ-P: the n-th AI request channel flag of a DS1 map's placed characters (a generator's

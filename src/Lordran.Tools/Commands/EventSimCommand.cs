@@ -90,6 +90,7 @@ public static class EventSimCommand
             case "return": return Return(args[2], args.Contains("--trace")); // session 11 (ret11): the return trip's characters
             case "burg-bosses": return BurgBosses(args[2], args.Contains("--trace")); // session 11 (burg11, M4): the Burg's boss fights
             case "depths-bosses": return DepthsBosses(args[2], args.Contains("--trace")); // session 11 (dchr11): the Gaping Dragon fight
+            case "boss-idle": return BossIdle(args[2], args.Skip(3).Where(a => !a.StartsWith("--")).ToList(), args.Contains("--trace")); // session 13 (seam13), rule BB1: no boss battle / reward while the player is not in the arena
             case "idle": { int si = Array.IndexOf(args, "--save"); var skip = new HashSet<int>(si > 0 ? [si, si + 1, si + 2] : []); return Idle(args[2], args.Skip(3).Where((a, k) => !a.StartsWith("--") && !skip.Contains(k + 3)).ToList(), args.Contains("--trace"), si > 0 ? args[si + 1] : null, si > 0 ? int.Parse(args[si + 2]) : 0); } // session 11 (fix11): spawn + idle 60 s, no warp / no flag change after load
             case "lint-translate": // event-sim lint-translate MAP [--all-chr]: rules G1 + G2 over the translator's output (no pack)
             {
@@ -434,6 +435,7 @@ public static class EventSimCommand
         const string ds1Map = "m10_01_00_00";
         string map = Build.Maps.MapHosts.Host(ds1Map);
         var esd = ESD.Read(Path.Combine(pack, "gamedata", "ezstate", $"event_{map}.esd"));
+        var battleOf = BattleMap(pack, map, out _);
         static int A(byte[] b) => (int)EventSim.Evaluate(b, (_, _) => 0);
         int F(int ds1) => FlagRules.Map("m10_01", ds1) ?? FlagRules.OtherMapPersistent("m10_01", ds1) ?? throw new InvalidDataException($"no DS2 flag for {ds1}");
         IEnumerable<(long G, ESD.CommandCall C)> All() => esd.StateGroups.SelectMany(g => g.Value.Values.SelectMany(s => s.EntryCommands.Concat(s.Conditions.SelectMany(k => k.PassCommands))).Select(c => (g.Key, c)));
@@ -443,7 +445,8 @@ public static class EventSimCommand
         System.Numerics.Vector3 R(int e) => msb1.Regions.GetEntries().First(r => r.EntityID == e).Position + new System.Numerics.Vector3(0, 0.3f, 0);
         EventSim Sim(long[] groups, (int Flag, int V)[] flags, params (string Name, int Region)[] spots)
         {
-            var o = new EventSim.Options { Trace = trace };
+            var o = new EventSim.Options { Trace = trace, InactiveBattlesHold = true }; // session 13 (seam13), rule BB1: DS2's not-yet-started battles read as won
+            foreach (var kv in battleOf) o.BattleOf[kv.Key] = kv.Value;
             foreach (var (n, r) in spots) o.Spots[n] = R(r);
             o.Spots["away"] = R(1012890) + new System.Numerics.Vector3(0, 300, 0);
             foreach (var (f, v) in flags) o.Flags[f] = v;
@@ -456,6 +459,12 @@ public static class EventSimCommand
             Print(sim);
             ck.Begin(name[..name.IndexOf(' ')], sim);
             check(sim);
+            // session 13 (seam13), rule BB1: under DS2's pessimistic model nothing ends before the kill (the "fight" shot comes before it)
+            if (sim.Shots.Any(x => x.Name == "fight"))
+            {
+                int fightAt = sim.Shots.First(x => x.Name == "fight").Frame;
+                ck.Expect($"no defeat / reward before the kill (132202 frames {string.Join(",", sim.BossLog.Where(b => b.Cmd == 132202).Select(b => b.Frame))}, fight shot {fightAt})", !sim.BossLog.Any(b => b.Cmd == 132202 && b.Frame <= fightAt));
+            }
         }
         bool Has(EventSim s, int cmd, int battle) => s.BossLog.Any(b => b.Cmd == cmd && b.Battle == battle);
         string Log(EventSim s) => string.Join(", ", s.BossLog.Select(b => $"{b.Cmd}({b.Battle})"));
@@ -1014,6 +1023,98 @@ public static class EventSimCommand
     }
 
     /// <summary>
+    /// Session 13 (seam13), rule BB1 / check BOSS-IDLE (user, 10/19: "bosses should only spawn when they enter the boss arena
+    /// through the fog"; in game the Bell Gargoyles' gauge, defeat and reward ran when the Burg merely streamed in): the boss
+    /// battles of a map (every battle id its event ESD names in 132201 / 132202 / 140522 / 140523) and their generators (the
+    /// boss part + the further parts of the fight = MSB enemies of the DS1 maps the host carries with the boss's model) run
+    /// under the pessimistic model <see cref="EventSim.Options.InactiveBattlesHold"/> (what DS2 did in game: a not-yet-started
+    /// battle reads as won / at any HP). With every event group of the map running and the player standing at each arrival spot
+    /// (entry / Echo spots, in front of each bonfire) and once outside the map (the neighbour-streaming case) for 60 s, first
+    /// visit: no battle starts (132201), no battle ends (132202), no item lot is awarded (131402).
+    /// </summary>
+    static int BossIdle(string pack, List<string> maps, bool trace)
+    {
+        var ck = new Checks();
+        if (maps.Count == 0) maps = ["m18_01_00_00", "m19_41_00_00", "m19_40_00_00"];
+        var defs = Directory.GetFiles(Path.Combine(Formats.ParamStore.SmithboxParams, "DS2S", "Defs"), "*.xml").Select(p => PARAMDEF.XmlDeserialize(p)).ToList();
+        string title = Path.Combine(pack, "title");
+        var store = Formats.ParamStore.LoadDs2(File.Exists(Path.Combine(title, "enc_regulation.bnd.dcx")) ? title : Program.DefaultDs2Root, ExtractDs2.DefaultOut);
+        var wdp = store.Params["MapObjectWhiteDoorParam"]; var bbp = store.Params["BossBattleParam"];
+        foreach (var map in maps)
+        {
+            string esdPath = Path.Combine(pack, "gamedata", "ezstate", $"event_{map}.esd"), locPath = Path.Combine(pack, "gamedata", "param", $"eventlocation_{map}.param");
+            if (!File.Exists(esdPath) || !File.Exists(locPath)) { Console.WriteLine($"{map}: not in the pack (skipped)"); continue; }
+            var o0 = BattleMap(pack, map, out var esd);
+            // rule FW1-B (static): every boss battle of the map has a DS2 boss fog (MapObjectWhiteDoorParam of the map's rows,
+            // category 1 entrance = "Enter" from the front only, or 2 = no way through) that its killed flag clears
+            int aabb = int.Parse(map[1..3] + map[4..6]) * 10000;
+            var fogs = wdp.Rows.Where(r => r.ID >= aabb && r.ID < aabb + 10000).Select(r => (r.ID, Cat: Convert.ToInt32(r["whiteDoorCategory"].Value), Back: Convert.ToInt64(r["backKeyGuideParamId"].Value), Pass: Convert.ToInt32(r["passFlagId"].Value))).ToList();
+            ck.Begin($"BOSS-FOG {map}", null!);
+            foreach (int b in o0.Values.Distinct().Order())
+            {
+                int killed = bbp[b] is { } bbr ? Convert.ToInt32(bbr["killedEventId"].Value) : 0;
+                var mine = fogs.Where(f => killed != 0 && f.Pass == killed).ToList();
+                ck.Expect($"{map} battle {b}: a boss fog cleared by its killed flag {killed} (got {string.Join(", ", mine.Select(f => $"{f.ID} cat {f.Cat} back {f.Back}"))})", mine.Count > 0);
+                ck.Expect($"{map} battle {b}: its fogs are sealed from inside (category 1 with no back key guide, or 2) (got {string.Join(", ", mine.Select(f => $"{f.ID} cat {f.Cat} back {f.Back}"))})", mine.All(f => f.Cat == 2 || (f.Cat == 1 && f.Back == 0)));
+            }
+            var groups = esd.StateGroups.Keys.Where(g => g < 80000).ToList();
+            var battles = o0.Values.Distinct().Order().ToList();
+            Console.WriteLine($"{map}: {battles.Count} boss battles [{string.Join(", ", battles)}], battle generators [{string.Join(", ", o0.Select(kv => $"{kv.Key}→{kv.Value}"))}]");
+            if (battles.Count == 0) continue;
+            var loc = PARAM.Read(locPath);
+            if (!loc.ApplyParamdefCarefully(defs)) throw new InvalidDataException($"eventlocation_{map}: no paramdef");
+            var spots = loc.Rows.Where(r => Convert.ToInt32(r["formType"].Value) == 1 && ((r.ID >= 3700000 && r.ID < 3700100) || (r.ID >= Build.Maps.MapScript.BonfireSpot && r.ID < Build.Maps.MapSeams.SeamSpot && r.ID % 10 == 0)))
+                .Select(r => (Name: r.ID.ToString(), Pos: new Vector3(Convert.ToSingle(r["PositionX"].Value), Convert.ToSingle(r["PositionY"].Value), Convert.ToSingle(r["PositionZ"].Value)))).ToList();
+            spots.Add(("outside the map (streamed in as a neighbour)", new Vector3(0, 5000, 0)));
+            foreach (var (name, pos) in spots)
+            {
+                var o = new EventSim.Options { Trace = trace, InactiveBattlesHold = true };
+                foreach (var kv in o0) o.BattleOf[kv.Key] = kv.Value;
+                o.Spots["s"] = pos + new Vector3(0, 0.05f, 0);
+                var sim = new EventSim(pack, map, groups, o);
+                ck.Begin($"BOSS-IDLE {map} {name}", sim);
+                Console.WriteLine($"=== BOSS-IDLE {map}: player at {name}, idle 60 s, first visit ({groups.Count} groups)");
+                sim.Run(["spot s", "sleep 60"]);
+                if (trace) Print(sim);
+                string log = string.Join(", ", sim.BossLog.Select(b => $"{b.Cmd}({b.Battle}) frame {b.Frame}"));
+                ck.Expect($"{map} at {name}: no boss battle starts (got {log})", !sim.BossLog.Any(b => b.Cmd == 132201));
+                ck.Expect($"{map} at {name}: no boss battle ends / boss reward (got {log})", !sim.BossLog.Any(b => b.Cmd == 132202));
+                ck.Expect($"{map} at {name}: no item lot awarded (got {string.Join(", ", sim.Awards)})", sim.Awards.Count == 0);
+            }
+        }
+        Console.WriteLine($"event-sim boss-idle: {ck.Pass + ck.Fail} checks, {ck.Fail} failed");
+        foreach (var f in ck.Failed) Console.WriteLine("  failed: " + f);
+        return ck.Fail == 0 ? 0 : 1;
+    }
+
+    /// <summary>Rule BB1: generator → boss battle for a host map (see <see cref="BossIdle"/>), and its event ESD.</summary>
+    static Dictionary<int, int> BattleMap(string pack, string map, out ESD esd)
+    {
+        esd = ESD.Read(Path.Combine(pack, "gamedata", "ezstate", $"event_{map}.esd"));
+        var battles = new SortedSet<int>();
+        foreach (var c in esd.StateGroups.Values.SelectMany(g => g.Values).SelectMany(s => s.EntryCommands.Concat(s.Conditions.SelectMany(k => k.PassCommands))))
+        {
+            if (c.CommandID is 132201 or 132202 && c.Arguments.Count > 0) battles.Add((int)EventSim.Evaluate(c.Arguments[0], (_, _) => 0));
+            if (c.CommandID is 140522 or 140523 && c.Arguments.Count > 1) battles.Add((int)EventSim.Evaluate(c.Arguments[1], (_, _) => 0));
+        }
+        var res = new Dictionary<int, int>();
+        foreach (var row in Build.Maps.MapHosts.Rows.Where(r => r.Host.Equals(map, StringComparison.OrdinalIgnoreCase)))
+        {
+            string msbPath = Path.Combine(Program.DefaultDsrRoot, "map", "MapStudio", row.Ds1Map + ".msb");
+            if (!File.Exists(msbPath)) continue;
+            var enemies = MSB1.Read(msbPath).Parts.Enemies;
+            foreach (int b in battles)
+            {
+                var boss = enemies.FirstOrDefault(e => e.EntityID == b);
+                if (boss == null) continue;
+                foreach (var e in enemies.Where(e => e.ModelName == boss.ModelName && e.EntityID > 0))
+                    res.TryAdd(EntityRules.Generator(e.EntityID), b);
+            }
+        }
+        return res;
+    }
+
+    /// <summary>
     /// Session 11 (fix11, user bug "Echo → Asylum: pose, then back to the last DS2 bonfire"), check IDLE1: for each map, the
     /// player spawns at each arrival spot (EventLocation point rows 3700000-3700099 = the entry / Echo spots, 3700400 + 10·i = in
     /// front of bonfire i (MapScript.BonfireSpot), plus
@@ -1279,6 +1380,38 @@ public static class EventSimCommand
             bool set = s.Flag(flag) != 0; // (the flag as of the end of the run: set only by the traversal)
             ck.Expect($"{shot}: fog {(hidden ? $"hidden, flag {flag} set" : "still up")} (got {(hid ? "hidden" : "up")}{(hidden ? $", flag {(set ? 1 : 0)}" : "")})", hid == hidden && (!hidden || set));
         }
+        // session 12 (fog12), rule FW1-P: the courtyard fog is DS2's native one-shot fog (category 5 + pass flag = the crossing
+        // event's own flag; the engine sets it once the player has walked through and removes the door). The translated
+        // 11810090 no longer has a crossing detector: walking around never hides the door or sets the flag; the engine's flag
+        // ends the event (flag kept) and nothing hides the door mid-walk; at the next load the flag hides it (load path).
+        var esdA = ESD.Read(Path.Combine(pack, "gamedata", "ezstate", "event_m18_01_00_00.esd"));
+        bool detector = esdA.StateGroups.Values.Any(gr => gr.Values.Any(s => s.EntryCommands.Any(c => c.CommandID == 140132
+            && EventSim.Evaluate(c.Arguments[1], (_, _) => 0) == 3704400)));
+        if (!detector)
+        {
+            var store = Formats.ParamStore.LoadDs2(Path.Combine(pack, "title"), ExtractDs2.DefaultOut);
+            int pf = Convert.ToInt32(store.Params["MapObjectWhiteDoorParam"][Build.Maps.AsylumScript.WdCourtyard]!["passFlagId"].Value);
+            var (g1, _) = esdA.StateGroups.First(kv => kv.Key >= 38000 && kv.Value.Values.Any(s => s.EntryCommands.Any(c => c.CommandID == 130702
+                && EventSim.Evaluate(c.Arguments[0], (_, _) => 0) == Build.Maps.AsylumScript.WdCourtyard)));
+            EventSim Native()
+            {
+                var o = new EventSim.Options { Trace = trace, Reverse = reverse, Records = records };
+                o.Spots["east"] = new(7.2f, 200.9f, 19.6f);
+                o.Spots["west"] = new(4.4f, 200.9f, 19.6f);
+                return new EventSim(pack, "m18_01_00_00", [g1], o);
+            }
+            ck.Begin("FP", null!);
+            ck.Expect($"courtyard fog row: native one-shot, pass flag set (got {pf})", pf != 0);
+            var walk = Native(); walk.Run(["spot east", "sleep 1", "spot west", "sleep 2", "spot east", "sleep 2", "shot walked"]);
+            ck.Expect($"FP walking through the boxes (no traversal): door not hidden by the event, flag {pf} not set (got hidden {walk.Objects.Values.Any(v => v.On == 0)}, flag {walk.Flag(pf)})",
+                !walk.Objects.Values.Any(v => v.On == 0) && walk.Flag(pf) == 0);
+            var eng = Native(); eng.Run(["spot east", "sleep 1", $"flag {pf} 1", "sleep 2", "shot passed"]);
+            ck.Expect($"FP the engine's pass flag ends the event (flag kept {eng.Flag(pf)}), no event hide mid-walk (got hidden {eng.Objects.Values.Any(v => v.On == 0)})",
+                eng.Flag(pf) == 1 && !eng.Objects.Values.Any(v => v.On == 0));
+            var load = Native(); load.Run([$"flag {pf} 1", "sleep 1", "shot loaded"]);
+            ck.Expect($"FP next load with the flag on: the load path hides the door (got hidden {load.Objects.Values.Any(v => v.On == 0)})", load.Objects.Values.Any(v => v.On == 0));
+        }
+        else
         foreach (var (name, steps, check) in fogRuns)
         {
             var sim = Fog(out int flag);

@@ -53,6 +53,14 @@ public sealed class MapObjects
     /// <summary>Rule FW1: the wall's SFX entity (wall + 1) → its white door instance; (wall, instance, model).</summary>
     public Dictionary<int, int> SfxDoors { get; } = [];
     public List<(int Wall, int Instance, string Model)> WhiteDoors { get; } = [];
+    /// <summary>Session 13 (seam13), rule FW1-B: the light walls that are boss fogs (wall entity → boss, DS1 killed flag, turned).</summary>
+    public Dictionary<int, BossFogs.Fog> BossFogWalls { get; } = [];
+    /// <summary>Session 12 (fog12): light walls some DS1 event crosses (3:18 / 3:19 line segment, BossFogs.Crossings).</summary>
+    public HashSet<int> CrossedWalls { get; } = [];
+    /// <summary>Session 12 (fog12), rule FW1-M: DS1 multiplayer-only light walls, not placed (absent offline).</summary>
+    public HashSet<int> OfflineAbsent { get; } = [];
+    /// <summary>Session 12 (fog12), rule FW1-S: a non-boss wall → the door sides (front / back) DS1 lets the player cross from.</summary>
+    public Dictionary<int, (bool Front, bool Back)> CrossSides { get; } = [];
     /// <summary>Rule CH1: DS1 chests (o0110 ObjAct parts) to DS2 treasure boxes (MapChests).</summary>
     public List<(MSB1.Part.Object Part, int Instance)> Chests { get; } = [];
     /// <summary>Rule WE4: DS1 damaging objects (2005:9) placed here, entity to instance (= their damage rows).</summary>
@@ -109,6 +117,20 @@ public sealed class MapObjects
         // door (o00_050x, the one whose model width is nearest DS1's wall), instance = MapObjectWhiteDoorParam row = AABB0000 +
         // entity % 10000 (row from vanilla 100: both sides, "Enter the mist" 401 / 411, no pass flag: DS1's own events hide
         // it, 2006:1 on the wall's SFX entity (wall + 1) → 130702(door, 0), and cross it, 3:18 line segment → the crossing boxes)
+        var crossings = BossFogs.Crossings(emevd, defs);
+        CrossedWalls.UnionWith(crossings.Keys); // session 12 (fog12), rules FW1-P / FW1-X
+        // rule FW1-S: the sides DS1 lets the player cross from (its action areas; front = the placed door's local −Z, the Asylum
+        // calibration), for the key guides of the walls that are not boss fogs
+        (bool Front, bool Back) Sides(MSB1.Part.Object w, Vector3 rot)
+        {
+            bool f = false, b = false;
+            foreach (int a in crossings.GetValueOrDefault(w.EntityID) ?? [])
+                if (msb1.Regions.GetEntries().FirstOrDefault(r => r.EntityID == a) is { } r)
+                { float s = BossFogs.Side(w.Position, rot, r.Position); if (s < 0) f = true; else if (s > 0) b = true; }
+            return (f, b);
+        }
+        var bossFogs = BossFogs.Of(dsrRoot, msb1, emevd, defs, msb1.Parts.Objects.Where(p => p.EntityID > 0 && sfx.Contains(p.EntityID + 1)).Select(p => p.EntityID).ToHashSet());
+        var hostDisabled = BossFogs.HostDisabled(emevd, defs); // rule FW1-M
         foreach (var p in msb1.Parts.Objects.Where(p => p.EntityID > 0 && sfx.Contains(p.EntityID + 1)))
         {
             // session 11 (burg11, round 9), rule FW1b: a light wall where an earlier one already stands (Demon Ruins: the boss
@@ -116,11 +138,34 @@ public sealed class MapObjects
             // multiplayer-only, find no door)
             if (WhiteDoors.Any(w => msb1.Parts.Objects.First(o => o.EntityID == w.Wall).Position is var q && Vector3.Distance(q, p.Position) < 0.1f))
             { placed.Add(p.EntityID); FogTwins.Add(p.EntityID); Log.Add($"rule FW1b: light wall {p.Name} (entity {p.EntityID}) at an earlier wall's place: not placed again"); continue; }
+            // session 12 (fog12), rule FW1-M (user, 10/19: "fog walls should only exist where they exist in DS1"): a light wall
+            // no DS1 event crosses, no boss defeat removes, and DS1's event 0 disables for the host (m10_01 1011994 …: shown only
+            // while phantoms are in the world) never exists in offline single player → not placed at all (no door, no fog, no
+            // collision; its events' commands are no-ops). seam13/fog12a placed it and hid it with 130702 at load, which left
+            // some of them blocking unseen (the aqueduct stairwell, in game 10/19) and others visible but passable.
+            if (!crossings.ContainsKey(p.EntityID) && !bossFogs.ContainsKey(p.EntityID) && hostDisabled.Contains(p.EntityID))
+            {
+                placed.Add(p.EntityID); OfflineAbsent.Add(p.EntityID);
+                Log.Add($"rule FW1-M: light wall {p.Name} (entity {p.EntityID}) is multiplayer-only in DS1 (event 0 disables it for the host, nothing crosses it): not placed");
+                StandIns.Add(("FW1-M multiplayer wall", p.Name, p.EntityID, "DS1 shows it only with phantoms; offline DS2 has no co-op: not placed"));
+                continue;
+            }
             FogWalls.Add(p.EntityID);
             var (model, why) = WhiteDoorModel(dsrRoot, Commands.ExtractDs2.DefaultOut, p);
             int inst = Inst(p.EntityID);
-            Placements.Add(new MapBuilder.Placement(model, p.Position, p.Rotation, inst, MapBuilder.PlacementKind.WhiteDoor, inst,
-                $"(DS1 {p.Name}, entity {p.EntityID}) rule FW1 white door ({why})"));
+            // rule FW1-B: a boss fog's front ("Enter the mist") faces away from its boss (calibrated on the Asylum's verified fog)
+            var rot = p.Rotation;
+            string bf = "";
+            if (bossFogs.TryGetValue(p.EntityID, out var fog))
+            {
+                BossFogWalls[p.EntityID] = fog;
+                if (fog.Turned) rot = new Vector3(rot.X, rot.Y + 180 > 180 ? rot.Y - 180 : rot.Y + 180, rot.Z);
+                bf = fog.Exit ? $"; rule FW1-X exit fog of {fog.Boss} (DS1 never crosses it: category 2, no key guide, DS1's rotation)"
+                    : $"; rule FW1-B boss fog of {fog.Boss}{(fog.Turned ? $", turned 180° so its front faces {(fog.EntryArea != 0 ? $"DS1's action area {fog.EntryArea} (FW1-F)" : "away from the boss")}" : "")}";
+            }
+            if (!BossFogWalls.ContainsKey(p.EntityID)) CrossSides[p.EntityID] = Sides(p, rot);
+            Placements.Add(new MapBuilder.Placement(model, p.Position, rot, inst, MapBuilder.PlacementKind.WhiteDoor, inst,
+                $"(DS1 {p.Name}, entity {p.EntityID}) rule FW1 white door ({why}){bf}"));
             placed.Add(p.EntityID); Instances[p.EntityID] = inst;
             SfxDoors[p.EntityID + 1] = inst;
             WhiteDoors.Add((p.EntityID, inst, model));

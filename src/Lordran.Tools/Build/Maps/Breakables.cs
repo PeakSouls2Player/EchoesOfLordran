@@ -49,9 +49,33 @@ public static class Breakables
             }
             else { gd["sfxIdBreak0"].Value = -1; note = $"DS1 breakSfxId -1 (no break effect, fragments only): sfxIdBreak0 {before} → -1"; }
         }
+        // session 12 (brk12), rule OBJ-MAT1: the hit material (what a weapon hitting it sounds / sparks like) from DS1's
+        // ObjectParam.materialId; every breakable is a copy of DS2's jar 2100 (material 19 = DS2's pots, vases, jars), so the
+        // Burg's crates, barrels, tables and chairs sounded like clay. DS1 wood (4: crates, barrels, tables, chairs, shelves,
+        // benches; 7: the barrels / benches of the snow areas) and DS1's unset −1 rows named barrel / box / basket → DS2 7
+        // (DS2's wooden boxes 2010/2220/2610, barrels 2000/2200, wooden chests 200: all 7); everything else stays 19 (DS1's
+        // pots 1/2/3/9/29).
+        var mop = pack.Param("MapObjectParam")[ObjPorter.ModelId(ds2Name)];
+        if (mop != null && row != null)
+        {
+            int want = Ds2Material(row);
+            int had = Convert.ToInt32(mop["material"].Value);
+            if (want != had) mop["material"].Value = Convert.ChangeType(want, mop["material"].Value.GetType());
+            pack.Note($"object hit material (OBJ-MAT1) {ds1Obj} → {ds2Name}: DS1 materialId {row["materialId"].Value} ({row.Name}) → MapObjectParam.material {want}{(want != had ? $" (template {had})" : "")}");
+        }
         var r = new Result(sound, ds1Sfx, ds2Sfx, note);
         All.Add((ds1Obj, ds2Name, r));
         pack.Note($"object break effect (OBJ-SFX1) {ds1Obj} → {ds2Name}: {note}");
         return r;
+    }
+
+    /// <summary>Rule OBJ-MAT1: DS2 MapObjectParam.material for a DS1 breakable (7 = DS2 wood, 19 = DS2 pottery / the jar's).</summary>
+    public static int Ds2Material(PARAM.Row ds1Row)
+    {
+        int m = Convert.ToInt32(ds1Row["materialId"].Value);
+        string name = ds1Row.Name ?? "";
+        if (m is 4 or 7) return 7;
+        if (m == -1 && (name.Contains('樽') || name.Contains('箱') || name.Contains('籠'))) return 7;
+        return 19;
     }
 }

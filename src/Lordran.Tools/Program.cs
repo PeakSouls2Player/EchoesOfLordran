@@ -90,10 +90,14 @@ public static class Program
                 return BalanceCheck.Run(args);
             case "map-hosts": // session 11 (cap11, rules H1/H2/CAP1): map-hosts [--cap N]: the DS1 -> DS2 host table, built and planned, and the WorldMapList budget
                 return MapHostsCommand.Run(args);
+            case "fog-check": // session 12 (fog12): fog-check PACK MAP... — white doors: DS1 crossings, facing, traversal floor / clearance
+                return FogCheck.Run(args);
             case "walk-check": // session 11 (walk11): walk-check PACK MAP [--seams] [--max N] [--steps FILE] — void / invisible walls / draw groups / assets vs DS1
                 return WalkCheck.Run(args);
             case "walk-probe": // session 11 (walk11): walk-probe PACK|data\ds2 MAP... — ACB draw/LOD settings, model extents, MSB part groups
                 return WalkProbe.Run(args);
+            case "seam-stream-check": // session 11 (seam12, rule SS1): seam-stream-check PACK [--dll DINPUT8.DLL] [--ds2 DIR]: DS2's neighbour streaming gate vs our connects
+                return SeamStreamCheck.Run(args);
             case "seam-check": // session 11 (burg11, BURG-PLAN M1 link-check): seam-check PACK MAP_A MAP_B [--from X,Y,Z --to X,Y,Z] [--via X,Y,Z] [--steps FILE]
                 return SeamCheck.Run(args);
             case "lane-check": // lane-check DS1MAP PACK_DIR [--y Y] [--radius R] X1,Z1,X2,Z2 ... | --scan XMIN,ZMIN,XMAX,ZMAX --len L --dir +z
@@ -411,6 +415,10 @@ public static class Program
                 return AiTools.Translate(args);
             case "burg-chr-check": // session 11 (burgchr11): every Burg character of a --burg-chrs pack is complete
                 return BurgChrCheck.Run(args);
+            case "dummy-check": // session 13 (seam13), rule DM1: no rigid FLVER with Flag1 + attach-bone dummies (DS2 crash exe+0xb35dae)
+                return DummyCheck.Run(args);
+            case "breakable-check": // session 12 (brk12): every placed breakable has a working break chain (bodies bind to nodes, params, sound, effect)
+                return BreakableCheck.Run(args);
             case "obj-check": // session 11 (fx11): every DS1 object behaviour of a map has a DS2 counterpart or a logged deviation
                 return ObjCheck.Run(args);
             case "bullet-check": // session 12 (bomb12): player + enemy projectile chains vs vanilla (effects < 30000, children, categories, rule E10f)
@@ -442,6 +450,10 @@ public static class Program
                 return Ds1ChrTools.StepsCalib(args);
             case "pose-scene": // session 9 (track npcpose): seated DS1 NPC in its map, DS1 vs ours (pose-scene oscar|cw OUT.png)
                 return PoseScene.Run(args);
+            case "npc-head-check": // session 11 (npc12): rule N-HEAD1 / N-OUT1 gate, every placed DS1 NPC looks as in DS1 (+ previews)
+                return OutfitCheck.NpcHeads(args);
+            case "npc-head-probe": // session 11 (npc12): FaceGen research
+                return NpcHeadProbe.Run(args);
             case "pose-view":
                 return Ds1ChrTools.PoseView(args);
             case "clip-survey":

@@ -37,12 +37,21 @@ $checks += , @("flag-check", "flag-check", $pack)
 $checks += , @("spot-check", "spot-check", "all", "--pack", $pack)
 $checks += , @("tex-collide", "tex-collide", "$pack\gamedata", "data\ds2")
 $checks += , @("parts-check", "parts-check", $pack)
+$checks += , @("dummy-check", "dummy-check", $pack) # session 13 (seam13): rule DM1, no rigid FLVER with Flag1 + attach-bone dummies (DS2 crash exe+0xb35dae: the Burg barrel o19_1330)
 $checks += , @("nmb-ids", "nmb-ids", $pack)
 $checks += , @("nmb-runtime-check", "nmb-runtime-check", "$pack\gamedata\morpheme4\chr")
 $checks += , @("world-events", "world-events", $pack)
 $checks += , @("event-sim world", "event-sim", "world", $pack)
 $checks += , @("event-sim nests", "event-sim", "nests", $pack)
 $checks += , @("event-sim doors", "event-sim", "doors", $pack)
+# session 13 (seam13), rule BB1 / FW1-B: no boss battle, defeat or reward while the player is not in the arena (map loaded or streamed in);
+# every boss battle has a DS2 boss fog sealed from inside that its killed flag clears; (the Burg / Depths fights: event-sim burg-bosses / depths-bosses below)
+$checks += , (@("event-sim boss-idle", "event-sim", "boss-idle", $pack) + $Maps)
+# session 12 (fog12): rules FW1-B/FW1-F/FW1-X/FW1-S/FW1-P/FW1-T, every white door vs DS1 and its traversal geometry
+$checks += , (@("fog-check", "fog-check", $pack) + $Maps)
+# session 12 (brk12): rule OB1 (every intact body of our objects binds to a FLVER node: collision exists in game) + every breakable's break chain
+# (fragments, objType, hit material OBJ-MAT1, break effect < 30000 in a title bank, break sound in a loaded project, breakobj, bonfire respawn)
+$checks += , (@("breakable-check", "breakable-check", $pack) + $Maps)
 $checks += , @("origin-check", "origin-check", $pack)
 $checks += , @("ring-check", "ring-check", $pack)
 $checks += , @("ds1boss-check", "ds1boss-check", "$refRoot\ds1boss-ref", "--pack", $pack) # DS1 boss reference (lr ds1boss-build data\sandbox\ds1boss-ref; rebuilt session 11 after enemy11)
@@ -70,6 +79,11 @@ $zfight = @(@("m19_42_00_00", "m19_41_00_00"), @("m19_41_00_00", "m19_40_00_00")
 foreach ($z in $zfight) { if (($Maps -contains $z[0]) -and ($Maps -contains $z[1])) {
     $checks += , @("seam-zfight $($z[0])>$($z[1])", "seam-zfight", $pack, $z[0], $z[1])
     $checks += , @("seam-zfight $($z[1])>$($z[0])", "seam-zfight", $pack, $z[1], $z[0]) } }
+# session 11 (seam12, rule SS1): DS2 streams a neighbour only when FUN_1402db4f0 (its 28-map chunk table) says so; our area-18/19
+# maps need the loader's seam stream gate (src\loader\stream.c). Checks the loader built beside the given lr.cmd's src.
+$lrDll = Join-Path (Split-Path $Lr) "src\loader\build\dinput8.dll"
+if (-not (Test-Path $lrDll)) { $lrDll = Join-Path (Split-Path $Lr) "loader\build\dinput8.dll" }
+$checks += , @("seam-stream-check", "seam-stream-check", $pack, "--dll", $lrDll)
 $checks += , @("warp-check", "warp-check", $pack)   # session 11 (fix11): WT1-WT3 warp targets / spawn boxes / shared ids, BF1-BF4 bonfires
 $checks += , @("travel-check", "travel-check", $pack)   # session 11 (travel12): TC1 every DS1 bonfire has a row, TC2 vanilla rows, TC3 Travel pictures (not blank, not a template copy, unique)
 $checks += , (@("event-sim idle", "event-sim", "idle", $pack) + $Maps)   # session 11 (fix11): IDLE1 60 s idle at every entry / Echo / bonfire
@@ -82,6 +96,7 @@ if ($Maps -contains "m19_40_00_00") { $checks += , @("bgm-check m10_00", "bgm-ch
 $checks += , @("ds1net-check", "ds1net-check", $pack) # session 11 (enemy11): DS1 network rules G1-G3 (blends, layers, arrows)
 $checks += , @("attack-travel-check", "attack-travel-check", $pack) # session 11 (leap12): DS1 attack travel = DS1 (T1/T2), DS1 JT 51 leaps covered by 280000 (rule LP1)
 $checks += , @("armor-check", "armor-check", $pack)       # session 11 (equip11): DS1 armour items, rules AR1-AR7
+$checks += , @("npc-head-check", "npc-head-check", $pack) # session 11 (npc12): rule N-HEAD1 / N-OUT1, every placed DS1 NPC: head (helm / FaceGen face / eyes / hair / back of head as DS1 draws them), all armour slots, ids resolve
 $checks += , @("spell-check", "spell-check", $pack)       # session 11 (equip11): DS1 spells, rules SP1-SP8
 $checks += , @("goods-check", "goods-check", $pack)       # session 11 (equip11): DS1 goods, rules GD1-GD6
 $checks += , @("regulation-check", "regulation-check", $pack) # session 11 (equip11): enc_regulation decrypts (= Smithbox), parses, ids sorted

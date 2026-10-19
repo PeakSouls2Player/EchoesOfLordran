@@ -222,9 +222,39 @@ public static class MapScript
         foreach (var (wall, inst, model) in plan.WhiteDoors)
         {
             if (pack.Param("MapObjectWhiteDoorParam")[inst] != null) continue;
+            // session 13 (seam13), rule FW1-B (BossFogs): a boss's fog = DS2's boss fog (vanilla 101000: category 1, "Enter the mist"
+            // from the front only, so the arena is sealed while the fight runs; gone once the boss's killed flag is set)
+            if (plan.BossFogWalls.TryGetValue(wall, out var fog) && (Events.FlagRules.Map(map.Ds1Map[..6], fog.Ds1KilledFlag) ?? Events.FlagRules.OtherMapPersistent(map.Ds1Map[..6], fog.Ds1KilledFlag)) is int killedDs2)
+            {
+                // session 12 (fog12), rule FW1-X: a boss fog DS1 never lets the player cross (no 3:18 / 3:19 on it: the arena's far
+                // wall, e.g. the Taurus bridge's tower door 1011892, the Gargoyle roof's 1011992) = DS2's boss-room exit fog
+                // (vanilla FoFG 101011: category 2, no key guide either side, exit effect 285, gone once the killed flag is set).
+                // seam13 gave it 101000's "Enter the mist" and turned it by the boss's spawn spot, so 1011892 offered the prompt
+                // from the bridge INTO a sealed boss fog while the Taurus Demon lived (the user's frozen traversal, 10/19)
+                if (fog.Exit)
+                {
+                    var xw = pack.AddRow("MapObjectWhiteDoorParam", pack.Param("MapObjectWhiteDoorParam")[101011]!, inst, $"[Lordran] {map.Ds2Map} DS1 boss exit fog {wall} (boss {fog.Boss})");
+                    xw["frontKeyGuideParamId"].Value = Convert.ChangeType(0, xw["frontKeyGuideParamId"].Value.GetType());
+                    xw["backKeyGuideParamId"].Value = Convert.ChangeType(0, xw["backKeyGuideParamId"].Value.GetType());
+                    xw["passFlagId"].Value = Convert.ChangeType(killedDs2, xw["passFlagId"].Value.GetType());
+                    lines.Add($"FW1-X boss exit fog {inst} ({model}) for DS1 light wall {wall}: boss {fog.Boss}, category 2, no key guide (DS1 never crosses it), pass flag {killedDs2} (DS1 {fog.Ds1KilledFlag})");
+                    continue;
+                }
+                var bw = pack.AddRow("MapObjectWhiteDoorParam", pack.Param("MapObjectWhiteDoorParam")[101000]!, inst, $"[Lordran] {map.Ds2Map} DS1 boss fog {wall} (boss {fog.Boss})");
+                bw["frontKeyGuideParamId"].Value = Convert.ChangeType(401, bw["frontKeyGuideParamId"].Value.GetType());
+                bw["backKeyGuideParamId"].Value = Convert.ChangeType(0, bw["backKeyGuideParamId"].Value.GetType());
+                bw["passFlagId"].Value = Convert.ChangeType(killedDs2, bw["passFlagId"].Value.GetType());
+                lines.Add($"FW1-B boss fog {inst} ({model}) for DS1 light wall {wall}: boss {fog.Boss}, category 1, front only, pass flag {killedDs2} (DS1 {fog.Ds1KilledFlag}){(fog.Turned ? ", turned 180°" : "")}{(fog.EntryArea != 0 ? $", front toward DS1 action area {fog.EntryArea} (FW1-F)" : "")}");
+                continue;
+            }
             var wd = pack.AddRow("MapObjectWhiteDoorParam", pack.Param("MapObjectWhiteDoorParam")[100]!, inst, $"[Lordran] {map.Ds2Map} DS1 light wall {wall}");
             wd["passFlagId"].Value = Convert.ChangeType(0, wd["passFlagId"].Value.GetType());
-            lines.Add($"FW1 white door {inst} ({model}) for DS1 light wall {wall}");
+            // session 12 (fog12), rule FW1-S: a key guide only on a side DS1 lets the player cross from (its 3:18 action areas);
+            // DS1's multiplayer walls (1011994 … : no crossing anywhere, shown only with phantoms) get none: a wall, as in DS1
+            var (cf, cb) = plan.CrossSides.GetValueOrDefault(wall);
+            if (!cf) wd["frontKeyGuideParamId"].Value = Convert.ChangeType(0, wd["frontKeyGuideParamId"].Value.GetType());
+            if (!cb) wd["backKeyGuideParamId"].Value = Convert.ChangeType(0, wd["backKeyGuideParamId"].Value.GetType());
+            lines.Add($"FW1 white door {inst} ({model}) for DS1 light wall {wall}: key guide {(cf ? "front" : "")}{(cf && cb ? " + " : "")}{(cb ? "back" : "")}{(!cf && !cb ? "none (DS1 never crosses it)" : "")} (FW1-S)");
         }
 
         // ---- the translated DS1 events
@@ -239,6 +269,13 @@ public static class MapScript
         tr.TranslateMap((id, slot) => nextGroup++);
         // session 11 (burg11, M4): DS1 common.emevd's boss rewards (970) instanced for this map's flags (AsylumScript's rule)
         tr.TranslateCommon(EMEVD.Read(Path.Combine(ds1.Root, "event", "common.emevd.dcx")), (id, slot) => nextGroup++, [970]);
+        // session 12 (fog12), rule FW1-P: the one-shot walls' pass flags (the translator chose each crossing event's own flag)
+        foreach (var (wall, flag) in ctx.PassFlags)
+            if (plan.Instances.TryGetValue(wall, out int pInst) && pack.Param("MapObjectWhiteDoorParam")[pInst] is { } pr)
+            {
+                pr["passFlagId"].Value = Convert.ChangeType(flag, pr["passFlagId"].Value.GetType());
+                lines.Add($"FW1-P one-shot fog {pInst} for DS1 light wall {wall}: category 5, pass flag {flag} (the engine sets it once the player has walked through; the translated crossing event waits for it)");
+            }
 
         var esd = ESD.Read(pack.GetFile("gamedata", $"ezstate/event_{map.Ds2Map}.esd"));
         var events = PARAM.Read(pack.GetFile("gamedata", $"param/eventparam_{map.Ds2Map}.param"));

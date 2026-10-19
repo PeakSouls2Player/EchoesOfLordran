@@ -9,5 +9,5 @@ set SRC=%~dp0
 if "%SRC:~-1%"=="\" set SRC=%SRC:~0,-1%
 for %%I in ("%SRC%\..\..\tools\minhook") do set MH=%%~fI
 if not exist "%SRC%\build" mkdir "%SRC%\build"
-"%CC%" -O2 -Wall -Wextra -shared -DLORDRAN_DEV -I"%MH%\include" -o "%SRC%\build\dinput8.dll" "%SRC%\main.c" "%SRC%\proxy.c" "%SRC%\vfs.c" "%SRC%\winfs.c" "%SRC%\regulation.c" "%SRC%\autopilot.c" "%SRC%\trace.c" "%SRC%\entry.c" "%SRC%\devkit.c" "%SRC%\travel.c" "%SRC%\gesture.c" "%SRC%\mapcap.c" "%SRC%\log.c" "%MH%\src\hook.c" "%MH%\src\buffer.c" "%MH%\src\trampoline.c" "%MH%\src\hde\hde64.c" "%SRC%\dinput8.def" -Wl,--no-insert-timestamp
+"%CC%" -O2 -Wall -Wextra -shared -DLORDRAN_DEV -I"%MH%\include" -o "%SRC%\build\dinput8.dll" "%SRC%\main.c" "%SRC%\proxy.c" "%SRC%\vfs.c" "%SRC%\winfs.c" "%SRC%\regulation.c" "%SRC%\autopilot.c" "%SRC%\trace.c" "%SRC%\entry.c" "%SRC%\devkit.c" "%SRC%\travel.c" "%SRC%\gesture.c" "%SRC%\mapcap.c" "%SRC%\stream.c" "%SRC%\dummyguard.c" "%SRC%\nmbpool.c" "%SRC%\log.c" "%MH%\src\hook.c" "%MH%\src\buffer.c" "%MH%\src\trampoline.c" "%MH%\src\hde\hde64.c" "%SRC%\dinput8.def" -Wl,--no-insert-timestamp
 exit /b %ERRORLEVEL%

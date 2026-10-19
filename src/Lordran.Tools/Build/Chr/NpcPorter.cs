@@ -116,8 +116,10 @@ public static class NpcPorter
     /// parts/face/FC_{faceId}_{M|F}.bnd (14 exist: Saulden 7410, Maughlin 7610 …), faceType 1 = a FaceGen preset
     /// (facePresetNo; faceId -1: the phantoms 813000/833000/836x00/837000 use presets 0 and 3). Until DS1's FaceGen faces
     /// are converted into FC models (NOTES: FaceGen), DS1 NPCs get preset 3, the phantoms' generic face, rather than a
-    /// named DS2 NPC's face.
+    /// named DS2 NPC's face. Session 11 (npc12): superseded by rule N-HEAD1 (<see cref="NpcHead"/>): that interim drew no head at
+    /// all on a bare head in game (the Crestfallen Warrior, Petrus); kept only as a record.
     /// </summary>
+    [Obsolete("rule N-HEAD1 (NpcHead): faceType 0, faceId -1, DS1's head in the head slot")]
     public const int InterimFacePreset = 3;
 
     /// <param name="talk">The build translates the NPCs' talk (build-pack without --no-talk): drop rows whose flag a talk
@@ -337,7 +339,9 @@ public static class NpcPorter
             }
             (right, rightStatus) = Weapon(pack, ds1, I(init, "equip_Wep_Right"), notes, "right");
             (left, leftStatus) = Weapon(pack, ds1, I(init, "equip_Wep_Left"), notes, "left");
-            notes.Add($"face: DS1 FaceGenParam {I(init, "npcPlayerFaceGenId")} (hair style {I(ds1.Params.Params["FaceGenParam"][I(init, "npcPlayerFaceGenId")]!, "hairStyle")}) not converted yet → DS2 FaceGen preset {InterimFacePreset} (interim)");
+            // session 11 (npc12), rule N-HEAD1: the head slot = DS1's whole head (helm + back of head + FaceGen face/eyes + hair, DS1's
+            // hiding) as one NPC-only head part; DS2 draws no face of its own (faceType 0, faceId -1, every DS2 face group hidden)
+            armourIds[0] = NpcHead.Build(pack, ds1, ds2, armour, part.NPCParamID, init, armourIds[0], notes);
         }
         else
         {
@@ -383,9 +387,12 @@ public static class NpcPorter
         Set(gen, "chrId", id);
         Set(gen, "gender", female ? 1 : 0);
         Set(gen, "equipType", 0);
-        Set(gen, "faceType", 1);
+        // session 11 (npc12), rule N-HEAD1: faceType 0 + faceId -1 = no DS2 face model (vanilla rows 7010-7280, 765000): the head part
+        // carries DS1's face (c0000 NPCs) or the chr body does (c2510 / c2750 / c2640). The former faceType 1 + facePresetNo 3 drew no
+        // head at all on a bare head (FUN_14035a650 never reads facePresetNo; faceType 1 = face mode 4, a summon's own face data)
+        Set(gen, "faceType", 0);
         Set(gen, "faceId", -1);
-        Set(gen, "facePresetNo", InterimFacePreset);
+        Set(gen, "facePresetNo", -1);
         // skin tint offsets: neutral (Carhillion/Magerold use 0,0,0; the template's Saulden -0.2/-0.14/-0.1 would darken
         // DS1's own skin textures, which the converted parts carry)
         foreach (string f in new[] { "skinR", "skinG", "skinB" }) Set(gen, f, 0);

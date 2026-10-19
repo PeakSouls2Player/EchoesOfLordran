@@ -263,6 +263,13 @@ public sealed class EmevdTranslator
         /// <summary>A light wall + the action button's area → the crossing boxes (button side, far side), or null when
         /// the entity isn't a fog with a DS2 white door.</summary>
         (int From, int To)? FogCrossing(int ds1FogObject, int ds1Area);
+        /// <summary>Session 12 (fog12), rule FW1-P: the light wall is a DS2 native one-shot fog (category 5 with a pass flag:
+        /// the engine sets the flag when the player has walked through and removes the door itself, as vanilla Things Betwixt
+        /// 100250-100275 / FoFG 101050, whose flags no event script references). The DS1 crossing (3:18) then waits for that
+        /// flag, the event's own "event + slot" flag, instead of the crossing boxes, so nothing hides the door mid-walk.</summary>
+        bool FogNativePass(int ds1FogObject) => false;
+        /// <summary>Rule FW1-P: records the DS2 pass flag the translator chose for a native one-shot fog (the regulation row's passFlagId).</summary>
+        void FogPassFlag(int ds1FogObject, int ds2Flag) { }
         /// <summary>A DS1 blood message (MSB entity) the map doesn't have yet: showing/hiding it is a no-op.</summary>
         bool MessageAbsent(int ds1MessageEntity);
         /// <summary>Session 10 (asy-items), rule M2: a DS1 blood message (MSB entity) → the DS2 EventLocation row the
@@ -743,7 +750,7 @@ public sealed class EmevdTranslator
         // session 11 (merge11, enemy-audit G4), rule T1-B: the placed bosses' logic flags reset at load (DS1's AI state
         // 2004:1 is not saved; the flag sits in DS2's block k = 2 as vanilla's 1BB020080, which only a rest zeroes)
         if (ctx.ResetsTemporaryFlags)
-            foreach (int lf in ctx.BossLogicFlags) TemporaryFlags.Add(lf);
+            foreach (int lf in ctx.BossLogicFlags) { TemporaryFlags.Add(lf); TemporaryFlags.Add(FlagRules.BattleLatchFlag(lf)); } // + rule BB1's battle latch
         // session 11 (fx11), rule E-REQ-P: DS1's AI requests are per load too (a fresh character has none)
         if (ctx.ResetsTemporaryFlags)
             foreach (int cf in ctx.AiChannelFlags) TemporaryFlags.Add(cf);
@@ -1175,6 +1182,22 @@ public sealed class EmevdTranslator
             return new Cond { Setup = [C(cmd, [sl, .. rest])], Expr = [0x82, .. BitConverter.GetBytes(140001), (byte)(0x40 + sl), 0x85, 0xA6] };
         }
         Cond Never(string what) { absent.Add(what); return new Cond { Expr = [0x40] }; }
+        // session 13 (seam13), rule BB1 (DS2's boss routine 【Lib】【プリセット】ボス戦開始: 【条件】ボス戦_終了判定 140522 is only
+        // waited for after 【実行】ボス戦_開始 132201): a boss fight's death / HP tests (140522, 140523, and 140111 / 140121 on a
+        // further part of the fight) hold only once the battle was started this load. In game (10/19 15:13, the Burg streamed in
+        // with the player at the aqueduct) 140523 / 140522 / 140111 on the not-yet-fought Bell Gargoyles held at once: the
+        // second Gargoyle's 60 % event started the battle (gauge), the defeat event ran 132202 and the reward lot. The battle
+        // latch (FlagRules.BattleLatchFlag = the boss's logic flag + 10, block k2, reset at load by T1-B) is set by every
+        // battle start (BattleStart); without a latch the test needs a running battle (f132201).
+        Cond InBattle(Cond c, int bb)
+        {
+            byte[] gate = ctx.LogicFlag(bb) is int lf ? FlagExpr(FlagRules.BattleLatchFlag(lf), true)
+                : [0x82, .. BitConverter.GetBytes(132201), .. Push(bb), 0x85, 0xA6, 0x40, 0x96];
+            c.Expr = [.. c.Expr, .. gate, 0x98];
+            return c;
+        }
+        // rule BB1: a battle start (132201) also sets the battle's latch
+        List<ESD.CommandCall> BattleStart(int bb) => ctx.LogicFlag(bb) is int lf ? [C(130101, FlagRules.BattleLatchFlag(lf), 1), C(132201, bb)] : [C(132201, bb)];
         // session 9 (track firelink): a batch flag test (3:1 / 1003:3 / 1003:4, DS1 "Logical Operation Type" 0 all ON, 1 all
         // OFF, 2 not all OFF, 3 not all ON) over event flags first..last (at most 32) → the single flag tests joined with
         // && (0, 1) or || (2, 3); Firelink's event 50 (Griggs: 1112..1114 not all OFF), 11020501 / 11020560 (Thorolund)
@@ -1230,6 +1253,14 @@ public sealed class EmevdTranslator
                 }
                 case (3, 5) or (3, 18) or (3, 19) when x.ID != 19 || ctx.CharacterRulesM3: // IF Action Button(group, entity type, entity, …[, line segment entity]); 3:19 (boss room): rule CR7
                 {
+                    // session 12 (fog12), rule FW1-P: a one-shot light wall (DS1: crossed, then disabled for good by this event's
+                    // own "event + slot" flag) is DS2's native one-shot fog: the crossing = the engine's pass flag, which is that flag
+                    if (x.ID == 18 && (int)v[9] > 0 && ctx.FogNativePass((int)v[9]) && ctx.Flag(EventFlag(2, 0)) is int own)
+                    {
+                        fogEvent = true;
+                        ctx.FogPassFlag((int)v[9], own);
+                        return new Cond { Expr = FlagExpr(own, true) };
+                    }
                     if (x.ID is 18 or 19 && (int)v[9] > 0 && ctx.FogCrossing((int)v[9], (int)v[2]) is var (from, to))
                     {
                         // traversing a DS2 white door: re-evaluated later as "the player is on the far side"
@@ -1282,9 +1313,11 @@ public sealed class EmevdTranslator
                     int e = (int)v[1];
                     if (ctx.Generator(e) is not int g) return Never($"chr {e}");
                     // a boss's death: DS2's boss-defeated condition (【条件】ボス戦_終了判定 'ボスを倒したか？')
-                    if (v[2] != 0 && ctx.IsBoss(e) && ctx.BossBattle(e, 0) is int bb) return Grp(140522, bb, 0, 1);
+                    if (v[2] != 0 && ctx.IsBoss(e) && ctx.BossBattle(e, 0) is int bb) return InBattle(Grp(140522, bb, 0, 1), bb);
                     var c = Grp(140111, g);
                     if (v[2] == 0) c.Expr = [.. c.Expr, 0x40, 0x95];
+                    // rule BB1: a further part of a boss's fight (the second Bell Gargoyle) is "dead" only once its battle started
+                    else if (ctx.BossBattle(e, 0) is int pb) c = InBattle(c, pb);
                     return c;
                 }
                 case (4, 7): // IF Character Backread Status(group, entity, state): no DS2 rule for a present character yet
@@ -1306,13 +1339,13 @@ public sealed class EmevdTranslator
                     // generator death 140111): one death test per character, no battle-gauge comparison code (U)
                     if (v[3] == 0 && (int)v[2] is 5 or 0)
                     {
-                        if (ctx.IsBoss(e) && ctx.BossBattle(e, 0) is int bd) return Grp(140522, bd, 0, 1);
-                        return Grp(140111, g);
+                        if (ctx.IsBoss(e) && ctx.BossBattle(e, 0) is int bd) return InBattle(Grp(140522, bd, 0, 1), bd);
+                        return ctx.BossBattle(e, 0) is int pd ? InBattle(Grp(140111, g), pd) : Grp(140111, g);
                     }
                     // a boss: the boss battle's HP (Belfry Gargoyles 140523(slot, battle, 0, percent, 5); 0 = the battle's
                     // combined gauge)
-                    if (ctx.IsBoss(e) && ctx.BossBattle(e, 0) is int bb) return Grp(140523, bb, 0, (int)Math.Round(v[3] * 100), (int)v[2]);
-                    return Grp(140121, g, (int)Math.Round(v[3] * 100), (int)v[2]);
+                    if (ctx.IsBoss(e) && ctx.BossBattle(e, 0) is int bb) return InBattle(Grp(140523, bb, 0, (int)Math.Round(v[3] * 100), (int)v[2]), bb);
+                    return ctx.BossBattle(e, 0) is int ph ? InBattle(Grp(140121, g, (int)Math.Round(v[3] * 100), (int)v[2]), ph) : Grp(140121, g, (int)Math.Round(v[3] * 100), (int)v[2]);
                 }
                 case (5, 0): // IF Object Destroyed(group, state 1 destroyed | 0 intact, entity)
                 {
@@ -1787,7 +1820,7 @@ public sealed class EmevdTranslator
                         long act = extraState++;
                         bool on = v[0] != 0;
                         states[St(i)] = S([], ([0x82, .. BitConverter.GetBytes(132201), .. Push(bb), 0x85, 0xA6, 0x40, on ? (byte)0x95 : (byte)0x96, 0xA1], act), (True, next));
-                        states[act] = S([C(on ? 132201 : 132204, bb)], (True, next));
+                        states[act] = S(on ? BattleStart(bb) : [C(132204, bb)], (True, next));
                         break;
                     }
                     // Force Animation Playback of a boss's start-up wake clip (step 2): the AI plays it (logic flag); "wait for
@@ -2144,6 +2177,8 @@ public sealed class EmevdTranslator
             }
             case (2005, 3): // (De)activate Object(entity, state)
             {
+                // session 12 (fog12), rule FW1-P: after a native one-shot fog's crossing the engine has removed the door itself
+                if (fogEvent && I(1) == 0 && ctx.FogNativePass(I(0))) { absent.Add($"object {I(0)}: native one-shot fog, the engine removes it (FW1-P)"); return []; }
                 if (ctx.Object(I(0)) is int o) return [C(130702, o, I(1) != 0 ? 1 : 0)];
                 if (ctx.ObjectAbsent(I(0))) { absent.Add($"object {I(0)}"); return []; }
                 missing.Add($"object {I(0)}");
@@ -2189,6 +2224,7 @@ public sealed class EmevdTranslator
             }
             case (2006, 1) or (2006, 2): // Delete / Spawn Map SFX(entity, …): fog walls are white doors
             {
+                if (fogEvent && x.ID == 1 && ctx.FogNativePass(I(0) - 1)) return []; // session 12 (fog12), rule FW1-P
                 var o = ctx.SfxObject(I(0));
                 if (o == null && ctx.StandInsAreNoOps) { absent.Add($"sfx {I(0)} (no DS2 counterpart yet, ST1)"); return []; }
                 if (o == null) { missing.Add($"sfx {I(0)}"); return null; }
@@ -2466,7 +2502,7 @@ public sealed class EmevdTranslator
                 var b = ctx.BossBattle(I(1), I(3));
                 if (b == null) { missing.Add($"boss bar for chr {I(1)} (no DS1 boss data)"); return null; }
                 if (Chr(I(1)) == null) return [];
-                return [C(I(0) != 0 ? 132201 : 132204, b.Value)];
+                return I(0) != 0 ? (ctx.LogicFlag(b.Value) is int lf ? [C(130101, FlagRules.BattleLatchFlag(lf), 1), C(132201, b.Value)] : [C(132201, b.Value)]) : [C(132204, b.Value)]; // rule BB1: the start sets the battle latch
             }
             case (2003, 12): // Handle Boss Defeat(entity)
             {

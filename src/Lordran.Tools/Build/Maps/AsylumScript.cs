@@ -406,7 +406,7 @@ public static class AsylumScript
         var wd2 = pack.AddRow("MapObjectWhiteDoorParam", pack.Param("MapObjectWhiteDoorParam")[100]!, WdCourtyard, "[Lordran] Asylum courtyard fog");
         wd2["frontKeyGuideParamId"].Value = 401u;
         wd2["backKeyGuideParamId"].Value = 411u;
-        wd2["passFlagId"].Value = 0;
+        wd2["passFlagId"].Value = Fl(11810090);  // session 12 (fog12), rule FW1-P: native one-shot fog, pass flag = its crossing event 11810090's own flag
 
         // the hall door's key guide: Majula's obelisk guide (a box in front of dummy 190) with "Open"
         var wd3 = pack.AddRow("MapObjectWhiteDoorParam", pack.Param("MapObjectWhiteDoorParam")[101011]!, WdPit, "[Lordran] Asylum Stray Demon pit fog");

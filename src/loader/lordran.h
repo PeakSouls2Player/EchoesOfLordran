@@ -57,6 +57,9 @@ typedef struct LoaderConfig {
     int travel_title;      // Travel window title: 0 vanilla (bonfire name), 1 page name, 2 page name - bonfire name
     int map_cap;           // WorldMapList limit raised to this many maps (mapcap.c, session 11); <= 42 = vanilla, max 48
     int gesture_pages;     // gesture menu: Drangleic / Lordran (DS1 gestures) pages switched with LB/RB (gesture.c, session 11)
+    int seam_stream;       // DS1 maps (areas 18/19) count as available to DS2's neighbour streaming (stream.c, session 11 seam12)
+    int nmb_pool_grow;     // DS2's fixed 12,288-entry Morpheme asset pool grows instead of crashing at exe+5f6634 (nmbpool.c, session 13 seam13)
+    int dummy_guard;       // rigid-model Flag1 + attach-bone dummies cleared instead of crashing at exe+b35dae (dummyguard.c, session 13 seam13)
 } LoaderConfig;
 extern LoaderConfig lr_config;
 extern wchar_t lr_pack_dir[MAX_PATH]; // the content pack in use (main.c find_pack), "" = none
@@ -93,3 +96,8 @@ void lr_mapcap_tick(void);
 int lr_mapcap_active(void); // the active map cap, 0 = off
 void lr_mapcap_set_dir(const wchar_t *lordran_dir); // side files go to <game>/lordran/mapcap/
 void lr_mapcap_report(void);
+
+void lr_stream_tick(void);   // stream.c (session 11, seam12): seam streaming gate for DS1 maps
+int lr_stream_active(void);
+void lr_nmbpool_install(void);    // nmbpool.c (session 13, seam13): rule I1p-L, Morpheme asset pool growth
+void lr_dummyguard_install(void); // dummyguard.c (session 13, seam13): rule DM1 safety net for exe+b35dae

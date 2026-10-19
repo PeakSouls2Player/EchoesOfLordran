@@ -708,6 +708,8 @@ public static class BuildPack
         }
         foreach (string line in ArmorItems.Finish(pack, ds1, ds2))
             Console.WriteLine("  " + line);
+        // session 11 (npc12), rule N-HEAD1: the NPC head pieces' interfere rows (after the helms' own AR8 rows exist)
+        foreach (string line in Build.Chr.NpcHead.FinishRows(pack)) { Console.WriteLine("  " + line); pack.Note(line); }
         if (spellIds is { Count: > 0 })
         {
             var porter = new SpellPorter(ds1, ds2, pack);

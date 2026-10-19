@@ -84,6 +84,7 @@ public sealed class Ds1MapContext : EmevdTranslator.IContext
         if (part == null) return !regionEntities.Contains(e) && !msb1.Parts.GetEntries().Any(p => p.EntityID == e);
         if (Object(e) != null) return false;
         if (plan.FogTwins.Contains(e)) return true; // round 9, rule FW1b: a multiplayer twin wall, not placed
+        if (plan.OfflineAbsent.Contains(e)) return true; // session 12 (fog12), rule FW1-M: a multiplayer-only wall, not placed
         if (IsTreasurePart(part)) return true;
         return !msb1.Parts.Objects.Any(p => p.EntityID > 0 && p.EntityID != e && Object(p.EntityID) != null && Vector3.Distance(p.Position, part.Position) < 0.05f);
     }
@@ -130,6 +131,14 @@ public sealed class Ds1MapContext : EmevdTranslator.IContext
     public int? SfxObject(int e) => plan.SfxDoors.TryGetValue(e, out int d) ? d : null;
     /// <summary>Rule FW1 (AsylumContext.FogCrossing's rule): boxes 2.5 m deep on each side of the wall's plane, 5 m wide, 4 m
     /// high from 1 m below the wall's origin, ids 3730000 + (wall % 10000)·2 + (0: +normal side, 1: −normal side).</summary>
+    /// <summary>Session 12 (fog12), rule FW1-P: a light wall DS1 crosses (3:18) that is not a boss fog = a one-shot "CP" wall
+    /// (m10_01 1011700 / 1011702: event 11010090 crosses it once and disables it for good by its own event + slot flag) →
+    /// DS2's native one-shot fog (category 5 + pass flag, the engine sets the flag and removes the door).</summary>
+    public bool FogNativePass(int fog) => plan.WhiteDoors.Any(w => w.Wall == fog) && !plan.BossFogWalls.ContainsKey(fog) && plan.CrossedWalls.Contains(fog);
+    /// <summary>Rule FW1-P: wall → the DS2 pass flag chosen by the translator (MapScript writes it into the wall's row).</summary>
+    public Dictionary<int, int> PassFlags { get; } = [];
+    public void FogPassFlag(int fog, int flag) => PassFlags[fog] = flag;
+
     public (int From, int To)? FogCrossing(int fog, int area)
     {
         if (!plan.WhiteDoors.Any(w => w.Wall == fog)) return null;

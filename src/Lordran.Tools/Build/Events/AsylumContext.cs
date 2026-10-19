@@ -177,6 +177,18 @@ public sealed class AsylumContext : EmevdTranslator.IContext
         return pack != null ? GoodsPorter.Port(pack, ds1, goods) : GoodsPorter.Id(goods);
     }
     public int? SfxObject(int e) => e switch { 1811991 => AsylumScript.BossFog, 1811701 => AsylumScript.CourtyardFog, 1811891 => AsylumScript.PitFog, _ => null };
+    /// <summary>Session 12 (fog12), rule FW1-P project-wide (as Ds1MapContext): a light wall the Asylum places as a white door
+    /// that is not a boss fog (BossFogs) and DS1 crosses with 3:18 = a native one-shot fog (the courtyard fog o8952, 11810090);
+    /// AsylumScript.Params gives its row the pass flag = the crossing event's own flag.</summary>
+    public bool FogNativePass(int fog) => SfxObject(fog + 1) != null && !AsylumBossFogs.Value.ContainsKey(fog);
+    static readonly Lazy<Dictionary<int, Maps.BossFogs.Fog>> AsylumBossFogs = new(() =>
+    {
+        string root = Program.DefaultDsrRoot;
+        var msb = MSB1.Read(Path.Combine(root, "map", "MapStudio", "m18_01_00_00.msb"));
+        var ev = EMEVD.Read(Path.Combine(root, "event", "m18_01_00_00.emevd.dcx"));
+        var sfx = msb.Events.SFX.Select(s => s.EntityID).Where(e => e > 0).ToHashSet();
+        return Maps.BossFogs.Of(root, msb, ev, Commands.EmevdDump.Defs(), msb.Parts.Objects.Where(p => p.EntityID > 0 && sfx.Contains(p.EntityID + 1)).Select(p => p.EntityID).ToHashSet());
+    });
 
     // ---------------------------------------------------------------- regions
     public int? Region(int e) => e is >= 1812000 and < 1813000 && AsylumScript.RegionIds.Contains(AsylumScript.RegionId(e)) ? AsylumScript.RegionId(e) : null;

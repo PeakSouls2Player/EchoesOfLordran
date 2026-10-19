@@ -98,6 +98,12 @@ public sealed class EventSim
         public readonly Dictionary<(int Gen, int Slot), int> Board = [];
         public readonly HashSet<int> PartBroken = [];
         public readonly Dictionary<int, double> Hp = [];
+        /// <summary>Session 13 (seam13), rule BB1: DS2 as seen in game on 10/19 (the Burg streamed in, Bell Gargoyles not fought):
+        /// before a boss battle has been started (132201) its tests hold — 140522 / 140523 on the battle, 140111 dead / 140121 HP
+        /// on a generator of the battle (<see cref="BattleOf"/>). The pessimistic model the boss-idle checks run under.</summary>
+        public bool InactiveBattlesHold;
+        /// <summary>Rule BB1: generator → its boss battle (bosses and the further parts of their fights).</summary>
+        public readonly Dictionary<int, int> BattleOf = [];
     }
 
     sealed record Region(int Id, Vector3 Pos, float Yaw, Vector3 Size, bool Box);
@@ -456,6 +462,10 @@ public sealed class EventSim
         return null;
     }
 
+    /// <summary>Rule BB1's pessimistic model: a boss battle not started yet (no 132201 so far) reads as won / at any HP.</summary>
+    bool Idle(int battle) => o.InactiveBattlesHold && battle >= 0 && IsBattle(battle) && !BossLog.Any(b => b.Cmd == 132201 && b.Battle == battle);
+    bool IsBattle(int battle) => o.BattleOf.ContainsValue(battle);
+
     bool SlotValue(int slot)
     {
         var list = cur!.Slots[slot];
@@ -476,11 +486,13 @@ public sealed class EventSim
             case 140209: return Active(A(1)) == (A(2) != 0);           // session 10: 【OBJ】アクティブ判定 (130702 shown/hidden)
             case 140602: return !o.Guest == (A(1) != 0);               // session 10: EventConditionNet_IsHost mode 0 (net object assumed)
             case 140801: return o.Items.Contains(A(1)) || Inventory.GetValueOrDefault(A(1)) > 0;               // session 10 (K4/K6): holds the item (vanilla form (s, item, 1, 3, 1, 1, 0))
-            case 140111: return Dead.Contains(A(1));                    // session 10 (e3): 「キャラ死亡判定」 the generator's character is dead
-            case 140522: return BossDefeated.Contains(A(1));            // session 11 (ret11): 「ボス戦_終了判定」 the boss battle was won (step bosskill)
+            case 140111: return Dead.Contains(A(1)) || Idle(o.BattleOf.GetValueOrDefault(A(1), -1)); // session 10 (e3): 「キャラ死亡判定」 the generator's character is dead
+            case 140522: return BossDefeated.Contains(A(1)) || Idle(A(1)); // session 11 (ret11): 「ボス戦_終了判定」 the boss battle was won (step bosskill)
+            case 140523: return Idle(A(1)) || BossDefeated.Contains(A(1)) || A(4) switch { 5 => o.Hp.GetValueOrDefault(A(1), 100) <= A(3), 3 => o.Hp.GetValueOrDefault(A(1), 100) < A(3), _ => false }; // session 13: battle HP (battle, 0, percent, cmp)
             case 140171: return (o.Board.GetValueOrDefault((A(1), A(2))) == A(3)) == (A(4) == 0);   // session 11 (chrai11): logic EzState flag (gen, slot, v, 0 = equal)
             case 140121:                                                // HP ratio (gen, percent, DS1 comparison 0 = … 5 <=)
             {
+                if (Idle(o.BattleOf.GetValueOrDefault(A(1), -1))) return true; // rule BB1 worst case
                 double hp = o.Hp.GetValueOrDefault(A(1), 100), p = A(2);
                 return A(3) switch { 0 => hp == p, 1 => hp != p, 2 => hp > p, 3 => hp < p, 4 => hp >= p, 5 => hp <= p, _ => false };
             }
