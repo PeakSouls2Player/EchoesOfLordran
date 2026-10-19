@@ -22,14 +22,17 @@ Play **offline only** with the mod installed. Never take a modded game online.
 
 | Path | What it is |
 |---|---|
-| `src/Lordran.Tools` | C# (.NET 10) command-line tools: the DS1→DS2 translators and `build-pack`, plus offline checks |
+| `src/Lordran.Tools` | C# (.NET 10) command-line tools: the DS1â†’DS2 translators and `build-pack`, plus offline checks |
 | `src/loader` | `dinput8.dll` loader (C, MinHook): serves the content pack to the game, Travel/Gesture menu pages, entry item |
 | `src/*.ps1`, `src/lr.cmd` | test and helper scripts (pack verification gate, hot-swap, test launches) |
-| `docs/translation-rules.md` | the rulebook: every DS1→DS2 translation rule and its status |
+| `docs/translation-rules.md` | the rulebook: every DS1â†’DS2 translation rule and its status |
 | `docs/ds2-re-notes.md`, `docs/travel-page-re.md` | DS2 engine reverse-engineering notes |
 | `docs/ds1-content/` | DS1 content census per area (enemies, NPCs, items, events) |
 
 ## Building
+
+Quick start: run `powershell -ExecutionPolicy Bypass -File setup.ps1` from the repo root. It fetches the open-source
+dependencies, lists what you still need, and builds everything. See `CONTRIBUTING.md` before sending changes.
 
 Paths in the scripts and tools assume the workspace lives at `C:\EchoesOfLordran` (clone it there, or search-replace
 that root). Expected workspace layout:
@@ -70,8 +73,8 @@ exactly while following DS2's systems. Pull requests must not contain any game f
 
 ## Credits
 
-- [SoulsFormatsNEXT](https://github.com/soulsmods/SoulsFormatsNEXT) — FromSoftware file formats
-- [MinHook](https://github.com/TsudaKageyu/minhook) — function hooking in the loader
+- [SoulsFormatsNEXT](https://github.com/soulsmods/SoulsFormatsNEXT) â€” FromSoftware file formats
+- [MinHook](https://github.com/TsudaKageyu/minhook) â€” function hooking in the loader
 - Smithbox (param definitions) and UXM (archive unpacking)
 - FromSoftware for Dark Souls and Dark Souls II. This is an unofficial fan project, not affiliated with or endorsed by
   FromSoftware or Bandai Namco.
