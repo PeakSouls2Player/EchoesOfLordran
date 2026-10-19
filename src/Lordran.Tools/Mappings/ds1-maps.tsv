@@ -1,0 +1,29 @@
+# Session 11 (track burg11, BURG-PLAN M1 track hosts), rules H1 / H2 / MH1: DS1 map → the DS2 map hosting it. The single
+# source of DS2 map ids for ported DS1 maps (MapHosts). A row is added when a DS1 map is ported; the order of the rows is
+# the order hosts share temporary-flag slots in (FlagRules F2) and must never be changed for existing rows.
+# Columns (TAB): ds1 map (mAA_BB_CC_DD) | host: "H1" = rule H1 m19_{40+3(AA-10)+BB}_00_00, or a pinned DS2 map id
+#   (PIN1: m18_01 grandfathered, verified in game since session 5) | area name (Travel menu, mapname.fmg) |
+#   banner: DSR menu atlas:line[:column] (AreaBanner; "-" = none) | template DS2 map for the empty containers |
+#   build option that ports it (build-pack) | note | former hosts (comma list; earlier ids of the same map, e.g. for the
+#   Travel picture data/lordran/travel/HOST.png and the pickup-id migration)
+m18_01_00_00	m18_01_00_00	Northern Undead Asylum	Menu21:2	m10_02_00_00	--map asylum	pinned (PIN1): DS1's own id, area 18 is unused in DS2
+m10_02_00_00	H1	Firelink Shrine	Menu20:0:1	m10_02_00_00	--map asylum	H1 → m19_42 (was m19_02 before session 11: shared flag prefix 102 with Things Betwixt)	m19_02_00_00
+m10_01_00_00	H1	Undead Burg	Menu20:1:0	m10_02_00_00	--map burg	H1 → m19_41 (Undead Burg + Lower Burg + Havel's tower + Undead Parish, one DS1 MSB)
+# Session 11 (cap11), rules H2 / CAP1: the agreed host of every DS1 map block not built yet (option "planned": kept out of
+# MapHosts.Rows, so no existing build changes). Physically joined areas share a host (H2); 38 vanilla lines + 10 hosts =
+# 48 WorldMapList lines = the loader's map cap (src\loader\mapcap.c, build-pack --map-cap 48). Hosts keep rule H1 ids
+# (flag prefixes 140..161, no vanilla overlap). Budget risk: packed hosts need DG1 culling (research\map-cap.md).
+m18_00_00_00	m19_42_00_00	Kiln of the First Flame	-	m10_02_00_00	planned	Firelink host: entered from Firelink Altar (H2; one map, warp joint)
+m10_00_00_00	H1	The Depths	-	m10_02_00_00	--map depths	H1 -> m19_40 (session 11 burg11: built with --map depths); H1 -> m19_40; H2 host of the lower chain Depths - Blighttown - Demon Ruins/Lost Izalith (physically joined)
+m14_00_00_00	m19_40_00_00	Blighttown	-	m10_02_00_00	--map blighttown	session 11 burg11 round 8: built with --map blighttown, merged into the Depths (H2Merge); H2 on m19_40 (Depths): joined through the Depths' lower door; budget: DG1 culling mandatory
+m14_01_00_00	m19_40_00_00	Demon Ruins	-	m10_02_00_00	planned	session 11 burg11 round 9 (ON HOLD: back to planned; --map demon-ruins once its option is restored here); H2 on m19_40 (Depths): joined through Quelaag's Domain (incl. Lost Izalith)
+m12_00_00_00	H1	Darkroot Garden	-	m10_02_00_00	planned	H1 -> m19_46; H2 host of Darkroot Garden/Basin, The Great Hollow/Ash Lake and Oolacile
+m13_02_00_00	m19_46_00_00	Ash Lake	-	m10_02_00_00	planned	H2 on m19_46 (Darkroot): the Great Hollow opens from Darkroot Basin
+m12_01_00_00	m19_46_00_00	Royal Wood	-	m10_02_00_00	planned	H2 on m19_46 (Darkroot): Oolacile is entered from Darkroot Basin's crest (DLC)
+m13_00_00_00	H1	The Catacombs	-	m10_02_00_00	planned	H1 -> m19_49; H2 host of the Catacombs and the Tomb of the Giants (physically joined)
+m13_01_00_00	m19_49_00_00	Tomb of the Giants	-	m10_02_00_00	planned	H2 on m19_49 (Catacombs)
+m15_00_00_00	H1	Sen's Fortress	-	m10_02_00_00	planned	H1 -> m19_55; H2 host of Sen's Fortress and Anor Londo (the Iron Golem roof joins them)
+m15_01_00_00	m19_55_00_00	Anor Londo	-	m10_02_00_00	planned	H2 on m19_55 (Sen's Fortress)
+m16_00_00_00	H1	New Londo Ruins	-	m10_02_00_00	planned	H1 -> m19_58 (incl. the Valley of the Drakes)
+m11_00_00_00	H1	Painted World of Ariamis	-	m10_02_00_00	planned	H1 -> m19_43 (own host: reached only through the painting in Anor Londo)
+m17_00_00_00	H1	Duke's Archives	-	m10_02_00_00	planned	H1 -> m19_61 (incl. the Crystal Cave)

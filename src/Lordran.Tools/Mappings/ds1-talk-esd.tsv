@@ -1,0 +1,110 @@
+# DS1 (DSR) talk ESD command (bank 1) and condition-function names, session 8. OUR OWN names inferred from
+# `ds1-talk --survey` evidence over all 179 DSR talk scripts (no DS1 talk name list exists locally: DarkScript3's emedf
+# covers EMEVD only, Smithbox's DS1R TalkScripts.json is empty). Japanese state labels quoted below are DS1's own debug
+# strings (command 1:0) with our translation.
+# Status: V = evidence leaves no doubt; P = plausible, names the observed role; U = role unknown: the dump keeps the
+# raw id (c1_NN / fNN) and only this table carries the notes.
+# Columns (TAB-separated): kind(cmd|fn)	id	name	arg kinds	status	evidence
+# Arg kinds: talk (TalkParam row chain → Conversation_ lines), event (Event_text_), goods (Item_name_), itemcat + item (category 0 weapon,
+# 1 armor, 2 ring, 3 goods, then the id), shop (ShopLineupParam row), flag, int, float, str, - (none).
+cmd	0	DebugEvent	str	V	one string per state, DS1's debug state labels: 待機 (wait), 篝火リスト (bonfire list), ソウルショップ (soul shop) …; no effect in game
+cmd	1	TalkToPlayer	talk,int,int	V	arg0 is a TalkParam row id (1138 of 1142 distinct values are rows; 12000009 Oscar t181602 and 10010301 Solaire t101600 exist only as Conversation_ ids): the talk plays that row and the consecutive rows after it (Oscar 12000000-12000005 = the first meeting), each row's msgId → Conversation_ (12000000 "...Oh, you... You're no Hollow, eh?"), motionId = talk animation; args 1-2 always -1; always followed by HasTalkEnded() == 1
+cmd	5	c1_5	-	U	exit command of the "talk interrupted" state (with c1_9) and in the return-to-wait state after ClearTalkTimer (73 talks)
+cmd	6	SetActionButtonText	event	V	arg0 Event_text_ prompts: 10010200 "Talk", 10010182 "Light bonfire", 10010183 "Rest at bonfire"; -1 clears it (states toggled by IsActionPromptShown)
+cmd	8	c1_8	int	U	arg 0 or 3; in the "リスト強制開放" (force-release list) state and after dialogs are interrupted, always with c1_9 (158 talks)
+cmd	9	c1_9	-	U	with c1_8 in "リスト強制開放" (force-release list) and on talk interruption (158 talks); likely stops the current talk
+cmd	10	c1_10	int,int,int	U	always (0, 0, 0), first entry of a talk-list state before AddTalkListData (116 talks; bonfire "篝火リスト"); opens or resets the list
+cmd	11	SetEventFlag	flag,int	V	arg0 event flags (71xxxxxx talk-progress flags, 11810590 Oscar's Estus flag), arg1 0/1; read back with GetEventFlag
+cmd	12	c1_12	-	U	in "リスト強制開放" (force-release list) with c1_8/c1_9/c1_43
+cmd	17	OpenGenericDialog	int,event,int,int,int	P	arg1 Event_text_ dialog texts: (8, 10020040 "What is your decision?", 3, 4, n) yes/no questions answered via GetGenericDialogButtonResult (1 yes, 2 no); (7, 10010729 "Covenant established", 1, 0, 2) notices
+cmd	18	ForceCloseGenericDialog	-	P	after every OpenGenericDialog when the talk is interrupted or done (states labelled 会話タイマークリア "clear conversation timer")
+cmd	19	AddTalkListData	int,event,flag	V	(index, Event_text_ label, flag): bonfire 篝火リスト = (9 "Leave", -1) (1 "Level Up", 11810000) (2 "Reinforce Weapon", 250) … (11 "Reverse Hollowing", 11810000); entry shown only when the flag is on (-1 always; Level Up needs 11810000 = arrived in Lordran); the chosen index is GetTalkListEntryResult()
+cmd	20	c1_20	-	U	exit command of every talk-list state (116 talks); closes or clears the list
+cmd	22	OpenRegularShop	shop,int	V	(first, last) ShopLineupParam row range: 23 of 24 first ids are ShopLineupParam rows, last = first + 19..99
+cmd	23	OpenRepairShop	-	V	state label 修理ショップ (repair shop); waits on IsMenuOpen(12) == 0
+cmd	24	OpenEnhanceShop	int	V	labels 武器強化 (reinforce weapon) = (0) and 防具強化 (reinforce armor) = (10); waits on IsMenuOpen(13) == 0
+cmd	28	OpenMagicEquip	int,int	V	label 魔法装備ショップ (magic equip shop) = Attune Magic, (10000, 10099); waits on IsMenuOpen(25) == 0
+cmd	30	OpenStorage	-	V	label 倉庫 (storage) = Bottomless Box; waits on IsMenuOpen(26) == 0
+cmd	31	OpenSoulShop	-	V	label ソウルショップ (soul shop) = Level Up; waits on IsMenuOpen(23) == 0
+cmd	32	c1_32	-	U	label メッセージボックス閉じる (close message box), reached when a bonfire menu is interrupted; then c1_43 and the force-release state
+cmd	35	c1_35	-	U	in 会話タイマークリア (clear conversation timer) states with ClearTalkTimer and ForceCloseGenericDialog
+cmd	36	ClearTalkTimer	-	P	every state labelled 会話タイマークリア / 会話タイマーをクリア (clear the conversation timer)
+cmd	38	SetUpdateDistance	int	V	label "待機　更新距離を25に設定" (wait: set update distance to 25) holds c1_38(25); other waits use 10 and 30
+cmd	39	c1_39	-	U	bonfire: after resting / kindling, with SetEventFlag(760, 0) (81 talks)
+cmd	40	KindleBonfire	-	P	label 人間性を捧げた (offered humanity): bonfire kindle (after SetEventFlag(760, 1)) and first lighting (with c1_53(26)); raises the bonfire level
+cmd	41	OpenWarpMenu	-	V	label ワープメニューを開く (open warp menu); waits on IsMenuOpen(36) == 0; f51() == 1 when a destination was chosen
+cmd	42	c1_42	-	U	bonfire rest state (with c1_35, c1_39)
+cmd	43	c1_43	-	U	with c1_32 (close message box) and in the force-release state
+cmd	46	OpenSellShop	int,int	V	label 売却ショップ (sell shop), always (-1, -1)
+cmd	47	ChangePlayerStat	int,int,int	P	(stat, op, value): pledging covenant n = (11, 5, n) (labels 誓約する / 誓約を変更する "pledge / change covenant"; (11, 5, 0) leaves); (10, 1, 1) when humanity is offered; read with ComparePlayerStat
+cmd	48	c1_48	-	U	opens a blacksmith reinforcement menu after a list of c1_49 entries; waits on IsMenuOpen(13) == 0 (7 talks)
+cmd	49	c1_49	int,int	U	pairs (350-367, 331-346) listed before c1_48 (blacksmith reinforcement routes)
+cmd	50	c1_50	int	U	always (0), in the bonfire list state only (74 talks)
+cmd	51	c1_51	int	U	labels 向かって左 / 向かって右 (facing left / right), args 1 / 0, one talk
+cmd	52	ChangeItemCount	itemcat,item,int	P	(3 = goods, id, delta) in 捧げる (offer) states: Sunlight Medal 375, Fire Keeper Soul 390, Soul of Gwyn 702 …, deltas -3..5
+cmd	53	c1_53	int	U	args 7-26; (26) when a bonfire is lit for the first time (with KindleBonfire), others in covenant states
+cmd	55	c1_55	int,int	U	(100|500, 1) right after OpenGenericDialog 10020050/10020052 "Required souls: <?evntAcquittalPrice?>": likely sets the dialog's soul price
+cmd	56	c1_56	int,int	U	(100|500, 1) in 免罪する (absolve) and 奇跡を教わる (learn miracle): likely pays that price
+cmd	57	c1_57	int	U	(100), with talk-flag resets
+cmd	58	c1_58	-	U	one use
+cmd	59	ReplaceItem	goods,goods,int	P	label 強化する (reinforce): (200, 202, 1) … (213, 215, 1) = Estus Flask +n → +n+1 at the Fire Keepers (3 talks, 294 uses)
+cmd	60	c1_60	-	U	in 誓約する / 誓約を変更する (pledge / change covenant), with ChangePlayerStat(11, 5, n)
+cmd	61	c1_61	-	U	bonfire Reverse Hollowing (人間性を捧げた), with c1_63(3), c1_62(25), ChangePlayerStat(10, 1, 1)
+cmd	62	c1_62	int	U	(25), bonfire Reverse Hollowing
+cmd	63	c1_63	int	U	(3), bonfire Reverse Hollowing
+cmd	64	c1_64	-	U	one use (人間性を捧げた)
+cmd	65	GiveItem	itemcat,item,int	P	(3, 9002..9014, 1) = gesture goods ("Hurrah!" 9002, "Prayer" 9014); followed by IsMenuOpen(63) == 0 (the item-received popup)
+cmd	66	AcquireGesture	int	P	(2..14) right after GiveItem of gesture goods 9002..9014 (same order); DS1 label ジェスチャーを学んだ (learned a gesture)
+cmd	67	c1_67	-	U	right after unprompted TalkToPlayer lines (Snuggly's proximity lines in t181645, hit-reaction lines Oscar 12000300 / Crestfallen 37002700) and in covenant pledge / absolution / bonfire covenant states (145 talks)
+cmd	68	c1_68	float	U	always (2.5f), after c1_67 in pledge/absolve states
+cmd	69	c1_69	-	U	3 uses (blacksmith menus)
+cmd	70	c1_70	int	U	(0, 5, 10, 15, 20), one talk
+cmd	71	c1_71	int	U	(1..6), 6 talks
+cmd	72	OpenCovenantMenu	-	V	label Open_covenant_menu; waits on IsMenuOpen(180) == 0; f56() == 1 when a covenant was joined
+cmd	75	c1_75	-	U	bonfire covenant: after joining (then f59() == 0)
+cmd	76	c1_76	-	U	in リスト強制開放 (force-release list), 6 talks
+cmd	77	c1_77	-	U	6 talks
+fn	0	f0	int,int	U	(14|15, 1) in 最初 (first) states, 6 talks
+fn	1	GetDistanceToPlayer	-	V	compared with distances in metres: > 8, > 5, <= 2, <= 3.4 (talk range)
+fn	2	HasTalkEnded	-	V	== 1 after every TalkToPlayer to go on
+fn	3	IsDead	-	P	the NPC is dead: one of the four talk-abort tests (f31 || f3 || f26 || f19 == 1); f3() == 1 && distance <= 5 plays the death lines (Oscar 12000300 "Hrggkt... / But...why...", Crestfallen 37002900 "Heheh, not too shabby..."); DS2: f130301() <= 1 (vanilla's death test, fix pass)
+fn	4	IsActionButtonPressed	-	P	f4() == 1 && GetAngleToPlayer() <= 45 && GetDistanceToPlayer() <= 2 && IsActionPromptShown() == 1 starts every conversation
+fn	5	IsAttacked	-	P	the NPC is being attacked: f5() == 1 || f3() == 1 interrupts a talk line (to the c1_9/c1_5 state), Oscar's wait state f5() == 1 → prompt off and line stopped; DS2: f130311(1) > 0 + reset 130351 on the transition (fix pass)
+fn	6	GetHpPercent	-	P	the NPC's HP in percent: compared <= 90 / >= 90 / >= 60 / <= 40 / <= 70; the female merchant shows her prompt only while f6() >= 60, plays "Why, you!" on f9 && f6 >= 90 and hostile lines on f9 && f6 <= 90 (DS1 event 11020510: hostile at HP ratio <= 0.9 after damage by the player); DS2: f130302() (HP割合取得, vanilla compares it with 50; fix pass)
+fn	8	GetAngleToPlayer	-	P	compared with angles: <= 45 to talk, > 120 / > 180 aborts
+fn	9	IsHitByPlayer	-	P	the NPC was hit: f9() == 1 && distance <= 5 && f6() <= 90 plays hit-reaction lines (Crestfallen 37002700 "Ooph!", 37002800 "Lousy rat! You have some nerve!"), merchant 34000600 "Why, you!" (stages gated by talk flags: one reaction per hit); DS2: f130311(1) > 0 + reset 130351 on the transition (fix pass)
+fn	14	IsActionPromptShown	-	P	f14() == 0 and talk possible → SetActionButtonText("Talk"); f14() == 1 and talk impossible → SetActionButtonText(-1)
+fn	15	GetEventFlag	flag	V	the flags set by SetEventFlag, compared with 0/1
+fn	16	HasItem	itemcat,item	P	(3, goods): Large Ember 800, Very Large Ember 801 … at blacksmiths, Weapon Smithbox 2600 (Crestfallen)
+fn	17	IsItemEquipped	itemcat,item	P	(2, 137) = ring Old Witch's Ring (needed to understand Quelaag's sister), 2 talks
+fn	19	f19	-	U	talk-abort test (== 1)
+fn	21	IsGenericDialogOpen	-	P	== 0 together with GetGenericDialogButtonResult to leave a dialog state
+fn	22	GetGenericDialogButtonResult	-	P	after OpenGenericDialog: 1 → yes branch (Oscar 話を聞く "listen"), 2 / 0 → no branch (願いを聞かない "refuse")
+fn	23	GetTalkListEntryResult	-	V	compared with the indices given to AddTalkListData (bonfire: 1 Level Up → soul shop state …)
+fn	25	IsMenuOpen	int	V	(menu) == 0 after each Open*: 12 repair, 13 reinforce, 23 level up, 25 attune, 26 storage, 36 warp, 63 item-received popup, 180 covenant
+fn	26	f26	-	U	talk-abort test (truthy)
+fn	27	f27	-	U	== 1 aborts bonfire menus and some talks
+fn	28	f28	int	U	(2, 3, 4, 11, 12) == 0/1, 27 talks
+fn	29	GetPlayerStat	int	P	player stat n (same ids as ChangePlayerStat / ComparePlayerStat): f29(10) <= 1 → bonfire "人間性がない" (no humanity), the Fair Lady's "No humanity" before an offering = humanity; f29(6) + 5 × f29(13) >= 25 gates the Sunlight Altar prompt for non-members and Solaire's join offer (6 / 13 unknown: Faith and a co-op count are guesses). Session 11 (cov11): f29(10) → Human Effigy count; others no rule (0)
+fn	30	f30	int	U	(1) == 0/1, label メッセージボックスを閉じる (close message box)
+fn	31	f31	-	U	talk-abort test (truthy)
+fn	32	f32	-	U	== 1 required before the "Talk" prompt is shown
+fn	33	f33	-	U	== 1 closes bonfire menus (75 talks)
+fn	34	f34	-	U	> 1 closes bonfire menus, < 1 needed for the rest prompt: maybe a player count
+fn	35	GetPlayerChrType	-	P	== 8 → "亡者のときは注ぎ火できない" (cannot kindle while Hollow); == 0 → "亡者ではない" (not Hollow): DS1 chr types 0 living, 8 hollow
+fn	37	f37	int	U	(0|1) == 1 in bonfire states (closes menus / allows them)
+fn	38	CompareBonfireLevel	int,int	P	bonfire: (0, 0) == 1 → unlit branch ("Light bonfire"); (0, 4) == 1 → "これ以上捧げられない　解放後" (cannot offer more, after release); (0, 2) == 1 with flag 257 off → "…解放前" (before release = Rite of Kindling)
+fn	45	ComparePlayerStat	int,int,int	P	(stat, op, value): (11, 0, n) checks covenant n before covenant rewards (bonfire covenant menu, Crestfallen (11, 0, 1)); pairs with ChangePlayerStat
+fn	46	f46	int	U	(±20) <= 40, one talk
+fn	47	f47	int,int,int,int,int	U	(3, 271, 1, 3, 0) once (goods 271 Purple Moss Clump)
+fn	48	f48	-	U	== 1 once (Crestfallen)
+fn	49	f49	int,int,int	U	(100|500, 1, 2|3) == 1 next to c1_55/c1_56 (soul price checks)
+fn	51	f51	-	U	== 1 in the warp menu state (destination chosen)
+fn	52	IsPhantomPresent	-	P	== 1 in the covenant join states (6 talks): "マルチプレイ中" (multiplayer) → 10010747 "Cannot enter covenant with phantom present." Session 11 (cov11): DS2 f130661(0, 1) >= 1 (vanilla join routine talk_m10_17 g2147483606)
+fn	54	f54	int	U	(0..20) == 0, one talk
+fn	55	f55	-	U	< 10, one talk
+fn	56	f56	-	U	== 1 in Open_covenant_menu (covenant joined)
+fn	58	f58	-	U	== 1 in 最初 (first) states, 6 talks
+fn	59	f59	-	U	== 0 after c1_75 (bonfire covenant)
+fn	60	CovenantPointsReached	int,int	P	(point stat 17..23, N 10|30|80|100) == 1 in 捧げる (offer) states right after ChangePlayerStat(15, 0, 1): the covenant's points just reached N (rank-up message and the reward at 10/30; "Rank gained" only at the thresholds, so "== N"). Session 11 (cov11): a DS2 global event variable per point stat (covenants.tsv)
+fn	61	f61	-	U	>= 0 in 最初 (first) states, 6 talks

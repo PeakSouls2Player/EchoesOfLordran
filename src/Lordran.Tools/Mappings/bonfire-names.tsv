@@ -1,0 +1,8 @@
+# Session 11 (burg11), rule BF1 + decision D-bfname: DS2 bonfire names of DS1 bonfires (DS1 has none: its warp menu shows
+# place names only). Rule: the DS1 place text (PlaceName_ of the MapNameID of the DS1 collision under the bonfire) is the
+# Travel area; the name is a landmark of DS1's own data/census. STATUS: PROPOSED, the user approves the list (D-bfname).
+# A DS1 bonfire without a row is named after its place text. Columns (TAB): DS1 map | DS1 bonfire entity | name | note
+m10_01_00_00	1011961	Sunlight Altar	census 02-burg: the altar tower bonfire (o0200_0001)
+m10_01_00_00	1011962	Undead Burg	census 02-burg: below the first Burg stairs, by the Undead Merchant (o0200_0002)
+m10_01_00_00	1011964	Undead Parish	census 02-burg: Andre's bonfire in the lower Parish (o0200_0005)
+m18_01_00_00	1811961	Undead Asylum Hall	session 11 travel12 (rule BF1-A): the 2nd Asylum bonfire, in the hall past the escape gate below the archer ledge (o0200_0001); PROPOSED like the rows above

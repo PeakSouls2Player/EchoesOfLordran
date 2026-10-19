@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../tools/SoulsFormatsNEXT/SoulsFormats/SoulsFormats.csproj" />
+  <Project Path="Lordran.Tools/Lordran.Tools.csproj" />
+</Solution>

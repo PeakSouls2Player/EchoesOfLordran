@@ -1,0 +1,17 @@
+# Session 11 (travel12), rule TP1: the viewpoint of each DS1 bonfire's Travel picture (Build/Maps/TravelPictures.cs renders
+# DS1's own map pieces, lightmaps, LightBank / FogBank and bonfire model from it; `lr travel-render ENTITY OUT.png` shows one,
+# `--sweep [DIST] [HEIGHT]` eight candidates around the bonfire). DS1 world coordinates; yaw like the MSB (facing
+# (-sin, -cos)); pitch up positive; fov horizontal degrees; exposure x the automatic one. Chosen from 8-view sweeps
+# (6 m back, 2.5 m up). The Asylum courtyard and Firelink rows are used only when no in-game screenshot
+# (data\lordran\travel\HOST.png) exists for the map.
+# Columns (TAB): DS1 map | DS1 bonfire entity | eye x | eye y | eye z | yaw | pitch | fov | exposure | note
+m18_01_00_00	1811960	3.10	198.41	13.44	0	-14	70	1	Undead Asylum Courtyard: across the courtyard to the hall stairs
+m18_01_00_00	1811961	37.58	195.65	-22.23	45	-14	70	1	Undead Asylum Hall: the stairs and the door past the bonfire
+m10_02_00_00	1021960	-45.80	-58.10	55.70	90	-14	70	1	Firelink Shrine: the bonfire and the ruined shrine walls
+m10_01_00_00	1011961	28.59	12.00	-17.96	45	-14	70	1	Sunlight Altar: the altar floor, out to the Parish arches
+m10_01_00_00	1011962	-2.80	-7.52	-61.20	270	-14	70	1	Undead Burg: the cellar under the first stairs
+m10_01_00_00	1011964	92.14	17.50	103.26	135	-14	70	1	Undead Parish: Andre's room, railing and door
+m10_00_00_00	1001960	-120.50	-71.63	18.20	0	-14	70	1	The Depths: down the sewer corridor to the bonfire
+m14_00_00_00	1401960	134.43	-250.11	95.05	270	-14	70	1	Quelaag's Domain: the webbed ring around the bonfire
+m14_00_00_00	1401961	-197.50	-212.54	94.50	180	-14	70	1	Blighttown swamp: the tunnel mouth behind the bonfire
+m14_00_00_00	1401962	-273.26	-134.22	76.34	45	-14	70	1	Blighttown: the wooden scaffolds above the bonfire ledge

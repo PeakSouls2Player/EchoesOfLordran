@@ -1,0 +1,7 @@
+# Session 11 (burg11, BURG-PLAN M2): DS1 NPCs present at the start of a map ported by MapHosts' generic route (--map burg),
+# placed by NpcPorter with their DS1 talk (TalkBuilder). The Asylum and Firelink keep NpcPorter.Asylum / .Firelink.
+# Census source: docs\ds1-content\02-burg-parish-depths.md + burg-census (merchant conflict resolved: c2510 entity 6230).
+# Columns (TAB): DS1 map | MSB entity | sex (m/f; human-rig chr NPCs only) | why present at the start
+m10_01_00_00	6230	m	Undead Merchant (male): Burg rooftop beside the first bonfire, present from the start (BURG-PLAN M2 slice)
+m10_01_00_00	6580	m	Havel the Rock (user decision D2, session 11): DS1's hostile Havel in his watchtower (NpcParam 6580, team type enemy), placed by NpcPorter
+m10_01_00_00	6190	m	Andre of Astora (user decision D2, session 11): the Parish blacksmith (c2640, talk 101619 with his shop / upgrade menus), present from the start

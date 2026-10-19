@@ -1,0 +1,42 @@
+ds1_name	action	ds2_item_id	ds2_name	why	quantity
+Estus Flask	map	60525000	Estus Flask Shard	User decision (session 9, rule G1): a DS1 Estus Flask gift becomes DS2's Estus Flask Shard
+Estus Flask - Drained	map	60525000	Estus Flask Shard	Rule G1: DS1's Estus Flask lots (goods 200-215, incl. Oscar's drained flask drop) give DS2's Estus Flask Shard
+Humanity	map	60151000	Human Effigy	DS2's equivalent for restoring human form
+Twin Humanities	map	60151000	Human Effigy	As Humanity (lot quantity 2)	2
+Fire Keeper Soul	map	60526000	Sublime Bone Dust	Both strengthen Estus at a bonfire
+Rite of Kindling	map	60525000	Estus Flask Shard	Kindling meant more Estus; a shard is DS2's version
+Large Ember	map	60980000	Titanite Chunk	DS2 upgrades go to +10 without embers; give an upgrade material instead
+Very Large Ember	map	60990000	Titanite Slab	As Large Ember
+Crystal Ember	map	61000000	Twinkling Titanite	No crystal infusion in DS2
+Large Magic Ember	map	61060000	Faintstone	Magic infusion
+Enchanted Ember	map	61140000	Magic Stone	Enchanted infusion
+Divine Ember	map	61070000	Boltstone	Faith-scaling infusion in DS2 is lightning
+Large Divine Ember	map	61070000	Boltstone	As Divine Ember
+Dark Ember	map	61090000	Darknight Stone	Dark infusion
+Large Flame Ember	map	61080000	Firedrake Stone	Fire infusion
+Chaos Flame Ember	map	61080000	Firedrake Stone	Fire infusion
+Green Titanite Shard	map	60975000	Large Titanite Shard	Mid-tier upgrade material
+Blue Titanite Chunk	map	60980000	Titanite Chunk	DS2 has one titanite line
+White Titanite Chunk	map	60980000	Titanite Chunk	DS2 has one titanite line
+Red Titanite Chunk	map	60980000	Titanite Chunk	DS2 has one titanite line
+Blue Titanite Slab	map	60990000	Titanite Slab	DS2 has one titanite line
+White Titanite Slab	map	60990000	Titanite Slab	DS2 has one titanite line
+Red Titanite Slab	map	60990000	Titanite Slab	DS2 has one titanite line
+Demon Titanite	map	61000000	Twinkling Titanite	Upgrades boss weapons in DS2
+Lordvessel	new			Progression key for Anor Londo / Kiln; DS2 already provides warping
+Transient Curse	new			Needed to fight New Londo and Catacombs ghosts
+Purging Stone	new			Cures curse; implemented with a DS2 special effect
+Weapon Smithbox	drop			DS2 blacksmiths handle upgrades
+Armor Smithbox	drop			DS2 blacksmiths handle upgrades
+Repairbox	drop			DS2 blacksmiths handle repairs
+Bottomless Box	drop			DS2 has its own item storage
+Souvenir of Reprisal	map	62100000	Token of Fidelity	Session 11 (cov11, DESIGN 3.4): Darkmoon Blade's offering = Blue Sentinels' DS2 offering (the Sunlight Medal / Dragon Scale precedent)
+Eye of Death	new			Session 11 (cov11, DESIGN 3.4): Gravelord Servant's offering and Nito's coffin key, ported on demand (Covenants.PortOffering, Rat Tail template); its online use is dropped
+Red Eye Orb	drop			Session 11 (cov11, DESIGN 3.4): Darkwraith rank reward whose only use is invading players; Seamless Co-op supplies its own invasion items
+Blue Eye Orb	drop			Session 11 (cov11, DESIGN 3.4): Darkmoon rank reward whose only use is invading sinners; Seamless Co-op supplies its own
+Orange Guidance Soapstone	drop			Session 11 (cov11, DESIGN 3.4): online messages only
+Book of the Guilty	drop			Session 11 (cov11, DESIGN 3.4): online sinner list only
+Servant Roster	drop			Session 11 (cov11, DESIGN 3.4): Chaos Servant online ranking only
+Purple Coward's Crystal	drop			Session 11 (cov11, DESIGN 3.4): Forest Hunter online exit only
+Indictment	drop			Session 11 (cov11, DESIGN 3.4): online sin reports only
+Dried Finger	drop			Session 11 (cov11, DESIGN 3.4): online summoning tweak; Seamless Co-op has Petrified Fingers
